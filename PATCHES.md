@@ -109,7 +109,11 @@ body 字体栈 `-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hirag
    （`sidebar-new-session-button ... text-[11px]`）→12；cwd 行 →13；cwd 路径（`font-mono text-[11px]
    ${e?...}`）→12；项目下拉项（`border-b border-divider text-left text-[11px] font-mono`）→12；
    底部面板 toggle（`fontSize:11,fontWeight:600,letterSpacing:"0.04em"`）→12。
-3. 自检标记：`PingFang SC`。
+3. +New 按钮：去 New 文字（锚 `,D("common.new")]` → `]`，D 为 i18n 变量名）；注入
+   `style:{background:"var(--success-bg)",borderColor:"var(--success-border)",color:"var(--success)"}`（锚
+   `"aria-label":D("sidebar.newSession"),`，⚠ 锚点截到逗号为止，含 `className:` 会把 style 插错位）。
+   svg 用 currentColor 自动继承按钮 color。
+4. 自检标记：`PingFang SC`。
 
 ## 5. 验证流程（每次适配后必做）
 

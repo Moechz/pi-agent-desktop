@@ -353,6 +353,25 @@ def main():
             raise PatchError(f"[P5] {name5} 锚点命中 {n5} 次")
         src = src.replace(old5, new5)
 
+    # 3) +New 按钮：去掉 New 文字仅留 + 号；浅绿底 + 深绿图标（主题变量随明暗自适应；
+    #    svg 用 currentColor，继承按钮 color）
+    m_btn = list(re.finditer(
+        rf'"aria-label":(?P<d>{ID})\("sidebar\.newSession"\),', src))
+    if len(m_btn) != 1:
+        raise PatchError(f"[P5] +New 按钮锚点命中 {len(m_btn)} 次")
+    mb = m_btn[0]
+    src = (
+        src[: mb.end()]
+        + 'style:{background:"var(--success-bg)",borderColor:"var(--success-border)",'
+          'color:"var(--success)"},'
+        + src[mb.end():]
+    )
+    m_txt = list(re.finditer(rf',{ID}\("common\.new"\)\]', src))
+    if len(m_txt) != 1:
+        raise PatchError(f"[P5] New 文字锚点命中 {len(m_txt)} 次")
+    mt = m_txt[0]
+    src = src[: mt.start()] + "]" + src[mt.end():]
+
     # ---------- P3-3：状态圆点（SessionItem 标题前） ----------
     pat_dot = r'\]\}\),\(0,(' + ID + r')\.jsxs\)\("div",\{className:"flex-1 min-w-0",children:\['
     m_dot = re.search(pat_dot, src)
