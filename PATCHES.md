@@ -90,6 +90,26 @@
 
 **坑**：编译后具名函数是 `function X({...})`（function 与名字间有空格），正则须 `function\s?[\w$]*\(\{…`。
 
+## 4b. P5 — 侧边栏菜单字体对齐 DSH Desktop
+
+**产品语义**：侧边栏"菜单"（会话列表/组头/顶栏项目选择/底部面板）字体与字号对齐 DSH Desktop
+（解包 `DSH Desktop.app/Contents/Resources/app.asar` 内 `@deepseek-ai/dsh-web-frontend` 得出参考值：
+body 字体栈 `-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",
+"Helvetica Neue",Helvetica,Arial,sans-serif`；菜单项 `--dsh-content-font-size-secondary: 13px`，次级 12px）。
+作用域仅侧边栏根 div（注入 fontFamily），聊天区仍用 Inter。
+
+**变换**（9 处）：
+1. 根容器：在侧边栏根 `return(0,n.jsxs)("div",{style:{display:"flex",flexDirection:"column",height:"100%",
+   overflow:"hidden"}` 的 style 里注入 `fontFamily:"<DSH栈>"`（JS 内层单引号）。
+   ⚠ RET 坐标在 hook+poller 插入后已偏移（插入物在 RET 前），必须 `re.search(pat_ret, src[RET:])` 重定位。
+2. 字号（均验证全 chunk 唯一后替换）：组头 10.5→13（P3 grouped 内）；会话标题 `text-[12px] leading-[1.4]
+   overflow-hidden text-ellipsis whitespace-nowrap `→13；meta 行 `"mt-0.5 flex gap-2 text-text-dim
+   text-[11px]"`→12；重命名输入（`flex-1 text-[12px] py-1.25...h-[30px]`）→13；新会话按钮
+   （`sidebar-new-session-button ... text-[11px]`）→12；cwd 行 →13；cwd 路径（`font-mono text-[11px]
+   ${e?...}`）→12；项目下拉项（`border-b border-divider text-left text-[11px] font-mono`）→12；
+   底部面板 toggle（`fontSize:11,fontWeight:600,letterSpacing:"0.04em"`）→12。
+3. 自检标记：`PingFang SC`。
+
 ## 5. 验证流程（每次适配后必做）
 
 ```bash

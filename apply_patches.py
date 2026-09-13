@@ -7,6 +7,7 @@ Pi Agent Desktop UI 补丁自动重打器（语义锚点版）
   P2 输入框边框加强
   P3 侧边栏项目平铺 + 会话运行状态点（树构建器存档/轮询器/分组渲染/空态/圆点）
      + 组头 ▼/▲ 折叠箭头（点击按目录展开/收起会话，状态存于组件 useState）
+  P5 侧边栏菜单字体对齐 DSH Desktop（系统字体栈 PingFang SC 等；菜单 13px/次级 12px）
 用法：
   python3 apply_patches.py            # 打补丁（幂等，已打过则跳过）
   PI_STANDALONE=/path python3 ...     # 指定 standalone 目录（测试用）
@@ -270,7 +271,7 @@ def main():
         "(0," + G["n"] + ".jsx)(\"svg\",{width:11,height:11,viewBox:\"0 0 24 24\",fill:\"none\",stroke:\"currentColor\",strokeWidth:1.8,"
         "style:{color:\"var(--text-dim)\",flexShrink:0},children:(0," + G["n"] + ".jsx)(\"path\","
         "{d:\"M1 3A1 1 0 0 1 2 2H4L5 3.5H8.5a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-.5.5h-7A.5.5 0 0 1 1 8V3Z\"})}),"
-        "(0," + G["n"] + ".jsx)(\"span\",{title:G.cwd,style:{fontSize:10.5,fontWeight:600,letterSpacing:\"0.03em\","
+        "(0," + G["n"] + ".jsx)(\"span\",{title:G.cwd,style:{fontSize:13,fontWeight:600,letterSpacing:\"0.03em\","
         "textTransform:\"uppercase\",flex:1,overflow:\"hidden\",textOverflow:\"ellipsis\",whiteSpace:\"nowrap\","
         "color:" + GS["scwd"] + "===G.cwd?\"var(--accent)\":\"var(--text-muted)\"},"
         "children:G.cwd.split(\"/\").filter(Boolean).slice(-2).join(\"/\")}),"
@@ -298,6 +299,62 @@ def main():
     ABS = RET + m_empty.start()
     src = src[:ABS] + newsegs + src[ABS + len(segs):]
 
+    # ---------- P5：侧边栏菜单字体对齐 DSH Desktop ----------
+    # DSH 参考：body 用系统字体栈(-apple-system,...,"PingFang SC",...)；菜单项 13px、次级 12px
+    DSH_FONT = ("-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC',"
+                "'Hiragino Sans GB','Microsoft YaHei','Helvetica Neue',Helvetica,Arial,sans-serif")
+    # 1) 侧边栏根容器注入 DSH 字体栈（作用域仅侧边栏，聊天区不受影响）
+    # ⚠ hook+poller 已插在 RET 前，return 实际位置后移，必须重新搜索定位（不能用旧坐标）
+    m5 = re.search(pat_ret, src[RET:])
+    if not m5:
+        raise PatchError("[P5] 侧边栏根 return 未找到")
+    POS5 = RET + m5.start()
+    seg5 = src[POS5:POS5 + 400]
+    old_root = 'height:"100%",overflow:"hidden"},children:'
+    if seg5.count(old_root) != 1:
+        raise PatchError("[P5] 侧边栏根容器锚点异常")
+    src = (
+        src[:POS5]
+        + seg5.replace(
+            old_root,
+            'height:"100%",overflow:"hidden",fontFamily:"' + DSH_FONT + '"},children:',
+            1,
+        )
+        + src[POS5 + 400:]
+    )
+    # 2) 字号提升（DSH: 菜单项 13px / 次级 12px）
+    size_subs = [
+        ("会话标题 12→13",
+         "text-[12px] leading-[1.4] overflow-hidden text-ellipsis whitespace-nowrap ",
+         "text-[13px] leading-[1.4] overflow-hidden text-ellipsis whitespace-nowrap "),
+        ("meta 行 11→12",
+         '"mt-0.5 flex gap-2 text-text-dim text-[11px]"',
+         '"mt-0.5 flex gap-2 text-text-dim text-[12px]"'),
+        ("重命名输入 12→13",
+         '"flex-1 text-[12px] py-1.25 px-2 border border-accent rounded-control outline-none bg-bg text-text h-[30px]"',
+         '"flex-1 text-[13px] py-1.25 px-2 border border-accent rounded-control outline-none bg-bg text-text h-[30px]"'),
+        ("新会话按钮 11→12",
+         "sidebar-new-session-button flex h-7 shrink-0 items-center justify-center gap-1 rounded-control border px-2 text-[11px]",
+         "sidebar-new-session-button flex h-7 shrink-0 items-center justify-center gap-1 rounded-control border px-2 text-[12px]"),
+        ("cwd 行 12→13",
+         'w-full flex items-center px-2.5 py-1.5 rounded-control cursor-pointer text-[12px] text-text text-left',
+         'w-full flex items-center px-2.5 py-1.5 rounded-control cursor-pointer text-[13px] text-text text-left'),
+        ("cwd 路径 11→12",
+         'flex-1 overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[11px] ${e?"text-text":"text-text-dim"}',
+         'flex-1 overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[12px] ${e?"text-text":"text-text-dim"}'),
+        ("下拉项目项 11→12",
+         'gap-[7px] w-full px-2.5 py-2 border-none border-b border-divider text-left text-[11px] font-mono',
+         'gap-[7px] w-full px-2.5 py-2 border-none border-b border-divider text-left text-[12px] font-mono'),
+        ("底部 toggle 11→12",
+         'cursor:"pointer",fontSize:11,fontWeight:600,letterSpacing:"0.04em"',
+         'cursor:"pointer",fontSize:12,fontWeight:600,letterSpacing:"0.04em"'),
+    ]
+    for name5, old5, new5 in size_subs:
+        n5 = src.count(old5)
+        if n5 != 1:
+            raise PatchError(f"[P5] {name5} 锚点命中 {n5} 次")
+        src = src.replace(old5, new5)
+
     # ---------- P3-3：状态圆点（SessionItem 标题前） ----------
     pat_dot = r'\]\}\),\(0,(' + ID + r')\.jsxs\)\("div",\{className:"flex-1 min-w-0",children:\['
     m_dot = re.search(pat_dot, src)
@@ -321,7 +378,7 @@ def main():
     )
     src = src[: m_dot.start()] + dot + src[m_dot.end():]
 
-    if MARKER not in src or "__piCLst" not in src or "_piS" not in src:
+    if MARKER not in src or "__piCLst" not in src or "_piS" not in src or "PingFang SC" not in src:
         raise PatchError("自检失败：补丁标记未出现在产物中")
 
     tmp = chunk + ".tmp"
