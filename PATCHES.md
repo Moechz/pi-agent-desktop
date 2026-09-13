@@ -1,0 +1,107 @@
+# PATCHES.md — 补丁技术档案
+
+> 目标读者：未来需要重新适配这些补丁的人/助手。请先读 README.md 了解全貌。
+
+## 0. 背景知识
+
+- 应用是 Electron + Next.js standalone 构建，运行时只读编译产物
+  `/Applications/Pi Agent Desktop.app/Contents/Resources/standalone/.next/static/chunks/*.js`。
+  **改 .tsx 源码不影响运行**（本项目早期改过的源码仅作参考镜像）。
+- chunk 按内容哈希命名，每次构建文件名和内部压缩变量名（如 `c7`、`y`、`D`）都会变。
+- 渲染进程从内嵌 server（端口 30141）拉 chunk，带 `Cache-Control: immutable` 缓存；
+  每次改文件后要清 `~/Library/Application Support/@chasen-liao/pi-agent-desktop/Cache/Cache_Data` 和 `Code Cache`。
+- 当前版本的关键编译标识符（`0wz_4dmun1la1.js`）：
+  - `X`=SessionSidebar 组件（props: selectedCwd=`p`, onCwdChange=`g`, sessions state=`y`, loadSessions=`D`…）
+  - `Y`=SessionTreeItem、`K`=SessionItem（prop `session`=`e`）
+  - `c1`=AssistantMessageView（props: message=`e`, isStreaming=`t`, blocks=`m`…）
+  - `c2`=BlockView、`cQ`=MessageView（消息分发）、`c7`=MessageList（messages=`e`）
+
+## 1. 定位目标 chunk
+
+`apply_patches.py::find_chunk()`：同时含 `t-acc-panel-inner`（折叠面板）、`sidebar.noSessions`
+（i18n 键）、`"/api/sessions"`、`composer-shell`（输入框类名）的那个 `.js`。
+
+## 2. P1 — 会话只留结果（v2）
+
+**产品语义**：任务执行中（消息 `isStreaming=true`）一切照旧实时显示；完成后：
+- 块级（`c1` 内）：只渲染最后一个 `text` 块，`thinking`/`toolCall` 渲染 null；
+- 消息级（`cQ` 分发处）：assistant 消息若一个 text 块都没有 → 整条 null；
+- 消息列表级（`c7`）：assistant 消息的后一条也是 assistant → 本条是中间叙述 → null；
+- 保留的最后一条消息内也只显示末尾 text 块（块级规则兜底）。
+
+**变换**（3 处）：
+
+1. 块级 map：锚 = `children:M.map((b,q)=>(0,n.jsx)(C,{block:b,toolResults:a,streamingDuration:w.get(q)??("thinking"===b.type?T:void 0),toolCallDurations:A},q))`，
+   外包 IIFE 先算最后 text 块下标 `li`，再条件渲染：
+   `!IS&&("text"!==b.type||q!==li)?null:(原渲染)`。
+   isStreaming 变量名 `IS` 从同组件后方的 `MSG.usage&&!IS&&`（页脚 usage 显示条件）捕获。
+2. 消息级：锚 = `"assistant"===MSG.role?(0,n.jsx)(c1,{message:MSG,isStreaming:IS,toolResults:...,prevTimestamp:...}):`（prop 键名稳定），
+   改为 `"assistant"===MSG.role?(!IS&&!(MSG.content??[]).some(b=>"text"===b.type)?null:(原渲染)):`。
+3. 列表级：锚 = `MSGS.map((MSG,IDX)=>{ ... V=(0,n.jsx)(cQ,{message:MSG,`（配合 `contentVisibility:"auto"` 特征，lazy ≤2000 字符），
+   在 `V=` 前注入 `V="assistant"===MSG.role&&MSGS[IDX+1]&&"assistant"===MSGS[IDX+1].role?null:`。
+
+**坑**：rf 字符串里 `\"` 会保留反斜杠字面量 → 用单引号 rf'...' 写普通引号。
+（曾因此产出 `\"text\"` 造成 JSC "Invalid escape in identifier"。）
+
+## 3. P2 — 输入框边框
+
+未聚焦态样式串 `"color-mix(in srgb, var(--border) 70%, transparent)"`（全 chunk 唯一）
+→ `"color-mix(in srgb, var(--text) 24%, transparent)"`。CSS 变量名随主题自适应，暗黑模式下清晰可见。
+
+## 4. P3 — 侧边栏平铺 + 运行状态点
+
+**产品语义**：左侧栏不再只显示单项目会话树，而是按 cwd 分组、全部会话平铺（组按最新活动排序，
+组头=项目目录名+执行中计数 `N ▶`，点击切换项目）；每会话前圆点 🟢(发光)=运行中 / ⚫(暗)=空闲。
+运行状态来自**轮询** `/api/agent/{id}`（GET 只读，不会孵化会话）的 `state.isStreaming`。
+
+**变换**（6 处）：
+1. 树构建器存档：`Z=function(E){let T=new Map;for(let N of E)T.set(N.id,{session:N,children:[]});` … `return A(R),R}(U);`
+   → 改名挂到 `window.__piBT`（首定义后复用），供分组渲染调用。
+2. 轮询器注入（组件 return 前）：`window.__piSM`（状态 map + key + 4s interval）、`window.__piIsRun(id)` 访问器；
+   key 变化（项目集合变）时重建。注入位置锚 = 组件根 `return(0,n.jsxs)("div",{style:{display:"flex",flexDirection:"column",height:"100%",overflow:"hidden"}}`（取组件内第一个）。
+3. 分组渲染替换：原 `Z.map((R)=>(0,n.jsx)(Y,{node:R,selectedSessionId:…,onSessionDeleted:P=>{CB?.(P),LD()},…},R.session.id))`
+   整体替换为 IIFE：按 `y`(sessions) 分组→排序→每组调 `window.__piBT(arr)` 建树→渲染组头（svg 文件夹图标 +
+   cwd 末两段 + 徽章）+ 会话条目。选中项目高亮用 `p===G.cwd`（selectedCwd prop）。
+4. 空态改判定：`!A&&!B&&0===U.length&&`（过滤后数组）→ `0===y.length&&`（全部会话为空才显示空态）。
+5. 状态圆点：SessionItem 内 `className:"flex-1 min-w-0"` 容器前插 span（8px 圆点，运行=var(--success)+glow+title"running"）。
+   session 变量名从往前最近的 `function K({session:S,isSelected:` 签名捕获。
+6. 以上涉及侧边栏作用域变量名的，全部从组件签名
+   `function X({selectedSessionId:SEL,onSelectSession:OSEL,…,selectedCwd:SCWD,onCwdChange:OCWD,…})` 捕获
+   （prop 键名稳定）。React hook 编译形态是 `(0,r.useState)([])` / `(0,r.useCallback)(async(`（带 0 前缀包裹），正则要兼容。
+
+**坑**：编译后具名函数是 `function X({...})`（function 与名字间有空格），正则须 `function\s?[\w$]*\(\{…`。
+
+## 5. 验证流程（每次适配后必做）
+
+```bash
+# 1) 在原始备份副本上端到端测试（模拟更新后的全新产物）
+rm -rf /tmp/pi-test && mkdir -p /tmp/pi-test/.next/static/chunks
+cp backup/0wz_4dmun1la1.js.orig /tmp/pi-test/.next/static/chunks/app-chunk.js
+PI_STANDALONE=/tmp/pi-test python3 apply_patches.py        # 应 exit 0
+PI_STANDALONE=/tmp/pi-test python3 apply_patches.py        # 第二次应打印"已是补丁状态，跳过"
+
+# 2) 语法校验（本机无 node，用 JavaScriptCore）
+cp /tmp/pi-test/.next/static/chunks/app-chunk.js /tmp/check.mjs
+osascript -l JavaScript -e 'ObjC.import("Foundation");
+  new Function($.NSString.stringWithContentsOfFileEncodingError("/tmp/check.mjs",4,null).js);"OK"'
+# → 输出 OK（报错即语法有问题，重点查引号转义）
+
+# 3) 标记检查：__piSM / __piBT / __piIsRun / var(--text) 24% / "text"=== 等关键子串均在
+# 4) 重启应用目视验证四组效果（见 README 表格）
+```
+
+## 6. 重新适配指南（锚点失配时）
+
+1. `python3 apply_patches.py` 报 `[P3] xxx 未找到` 之类 → 打开新 chunk，围绕该锚点找新特征：
+   先 `grep -c '稳定字符串'` 确认特征串还在；若在但结构变了，微调对应正则（都在 apply_patches.py 顶部可读的 pat_* 变量里）。
+2. 特征串本身没了（源码重构）→ 打开 `standalone/components/` 下对应 .tsx 源码读新实现，
+   按第 2–4 节的语义重新设计锚点与注入；保持"标记 `__piSM` + 幂等 + 全成功才写盘"三原则。
+3. 更新本文件与 README 的"适配版本"，提交 git。
+4. 大版本重构若官方改了组件结构（如换掉 SessionSidebar），评估是否放弃该组补丁。
+
+## 7. 源码镜像（早期手工修改，仅参考）
+
+`standalone/components/` 下 `MessageView.tsx`、`MessageList.tsx`、`ChatInput.tsx`、
+`SessionSidebar.tsx`、`session-sidebar/SessionTree.tsx`、`session-sidebar/helpers.ts`
+曾被同步修改以与编译补丁对应（不影响运行）。原始版备份在本项目 `backup/*.orig`。
+新版本适配**不需要**改源码。
