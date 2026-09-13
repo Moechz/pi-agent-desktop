@@ -32,13 +32,23 @@
 **变换**（3 处）：
 
 1. 块级 map：锚 = `children:M.map((b,q)=>(0,n.jsx)(C,{block:b,toolResults:a,streamingDuration:w.get(q)??("thinking"===b.type?T:void 0),toolCallDurations:A},q))`，
-   外包 IIFE 先算最后 text 块下标 `li`，再条件渲染：
-   `!IS&&("text"!==b.type||q!==li)?null:(原渲染)`。
+   外包 IIFE：**先在 IIFE 顶部把 `!IS` 快照到新变量 `_piS`**（`var _piS=!t;`），再算最后 text 块下标 `li`，
+   map 回调内条件渲染 `_piS&&("text"!==b.type||q!==li)?null:(原渲染)`。
    isStreaming 变量名 `IS` 从同组件后方的 `MSG.usage&&!IS&&`（页脚 usage 显示条件）捕获。
+   ⚠ **必须快照**（2026-09-13 踩坑）：某构建里 IS 恰好叫 `t`，而 map 回调参数 `(e,t)` 的块下标也叫 `t`，
+   内层遮蔽外层 → `!IS` 变成"第 0 块才判断"，toolCall 全部漏网。快照在外层作用域求值即可杜绝。
 2. 消息级：锚 = `"assistant"===MSG.role?(0,n.jsx)(c1,{message:MSG,isStreaming:IS,toolResults:...,prevTimestamp:...}):`（prop 键名稳定），
    改为 `"assistant"===MSG.role?(!IS&&!(MSG.content??[]).some(b=>"text"===b.type)?null:(原渲染)):`。
 3. 列表级：锚 = `MSGS.map((MSG,IDX)=>{ ... V=(0,n.jsx)(cQ,{message:MSG,`（配合 `contentVisibility:"auto"` 特征，lazy ≤2000 字符），
-   在 `V=` 前注入 `V="assistant"===MSG.role&&MSGS[IDX+1]&&"assistant"===MSGS[IDX+1].role?null:`。
+   注入 `V=!AG&&"assistant"===MSG.role&&(向后扫描)?null:` ——
+   ⚠ 会话 jsonl 是 **assistant/toolResult 交替存储**（toolResult 是独立角色消息，cQ 里渲染 null；
+   结果经 `eL` Map(toolCallId→result) 传入 c1），"下一条是 assistant"永不成立，必须向后扫描：
+   从 IDX+1 起遇到 `user` 返回 false、遇到 `assistant` 返回 true（跳过 toolResult/custom），
+   即"本轮内还有更晚的 assistant → 本条是中间叙述 → 隐藏"。
+   `AG`=agentRunning（c7 签名 prop，从 map 前 600 字内 `agentRunning:(\w+)` 捕获）做门控：
+   执行中全显、完成后才收起。
+   同时给该 cQ 调用补 `isStreaming:AG`（原调用不传 → 恒 undefined）：执行中块级/消息级规则放行，
+   实时可见全过程；完成后统一收起。（末尾的 streaming 消息本就显式传 `isStreaming:!0`，不受影响。）
 
 **坑**：rf 字符串里 `\"` 会保留反斜杠字面量 → 用单引号 rf'...' 写普通引号。
 （曾因此产出 `\"text\"` 造成 JSC "Invalid escape in identifier"。）

@@ -98,9 +98,11 @@ def main():
         raise PatchError("[P1-block] 找不到 usage&&!isStreaming 页脚锚点")
     g = m_block[0].groupdict()
     IS = m_usage.group("is")
+    # ⚠ 防变量遮蔽：IS（本构建里叫 t）可能被 map 回调参数 (e,t) 的下标同名遮蔽，
+    # 必须先在 IIFE 外层作用域把 !IS 快照到新变量 _piS，回调内只用 _piS
     repl_block = (
-        rf'children:(function(){{var li=-1;{g["m"]}.forEach(function(bb,i2){{if("text"===bb.type)li=i2}});'
-        rf'return {g["m"]}.map(({g["b"]},{g["q"]})=>!{IS}&&("text"!=={g["b"]}.type||{g["q"]}!==li)?null:'
+        rf'children:(function(){{var _piS=!{IS};var li=-1;{g["m"]}.forEach(function(bb,i2){{if("text"===bb.type)li=i2}});'
+        rf'return {g["m"]}.map(({g["b"]},{g["q"]})=>_piS&&("text"!=={g["b"]}.type||{g["q"]}!==li)?null:'
         rf'(0,{g["n"]}.jsx)({g["c2"]},{{block:{g["b"]},toolResults:{g["a"]},'
         rf'streamingDuration:{g["w"]}.get({g["q"]})??("thinking"==={g["b"]}.type?{g["T"]}:void 0),'
         rf'toolCallDurations:{g["A"]}}},{g["q"]}))}})()'
@@ -138,14 +140,29 @@ def main():
     if len(m_ml) != 1:
         raise PatchError(f"[P4] 命中 {len(m_ml)} 次")
     g4 = m_ml[0].groupdict()
+    # agentRunning 变量名：从 c7 签名（map 前 600 字内）捕获
+    m_ag = re.search(rf"agentRunning:(?P<ag>{ID})",
+                     src[max(0, m_ml[0].start() - 600): m_ml[0].start()])
+    if not m_ag:
+        raise PatchError("[P4] agentRunning 未捕获")
+    AG = m_ag.group("ag")
+    # 会话格式为 assistant/toolResult 交替存储，"下一条是 assistant"永不成立；
+    # 改为向后扫描：到下一条 user 前若还有 assistant → 本条是中间叙述 → 隐藏（跳过 toolResult）。
+    # 用 !agentRunning 门控：任务执行中全显，完成后才收起。
     inject = (
-        f"{g4['v']}=\"assistant\"==={g4['msg']}.role&&{g4['msgs']}[{g4['idx']}+1]"
-        f"&&\"assistant\"==={g4['msgs']}[{g4['idx']}+1].role?null:"
+        f"{g4['v']}=!{AG}&&\"assistant\"==={g4['msg']}.role"
+        f"&&(function(){{for(var k2={g4['idx']}+1;k2<{g4['msgs']}.length;k2++){{"
+        f"var r2={g4['msgs']}[k2].role;if(\"user\"===r2)return!1;if(\"assistant\"===r2)return!0}}"
+        f"return!1}})()?null:"
     )
     seg = m_ml[0].group(0)
-    src = src[: m_ml[0].start()] + seg.replace(
-        g4["v"] + "=(0,", inject + "(0,", 1
-    ) + src[m_ml[0].end():]
+    seg = seg.replace(g4["v"] + "=(0,", inject + "(0,", 1)
+    # cQ 调用补传 isStreaming=agentRunning：执行中块级/消息级规则放行（全过程可见）
+    cqcall = g4["cq"] + ",{message:" + g4["msg"] + ","
+    if seg.count(cqcall) != 1:
+        raise PatchError("[P4] cQ 调用锚点异常")
+    seg = seg.replace(cqcall, cqcall + "isStreaming:" + AG + ",", 1)
+    src = src[: m_ml[0].start()] + seg + src[m_ml[0].end():]
 
     # ---------- P3-1：树构建器存档到 window.__piBT ----------
     pat_bto = (
@@ -304,7 +321,7 @@ def main():
     )
     src = src[: m_dot.start()] + dot + src[m_dot.end():]
 
-    if MARKER not in src or "__piCLst" not in src:
+    if MARKER not in src or "__piCLst" not in src or "_piS" not in src:
         raise PatchError("自检失败：补丁标记未出现在产物中")
 
     tmp = chunk + ".tmp"
