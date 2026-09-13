@@ -372,6 +372,16 @@ def main():
     mt = m_txt[0]
     src = src[: mt.start()] + "]" + src[mt.end():]
 
+    # 4) 侧边栏默认宽度 260 → 347（加宽 1/3；clamp 220–480 内，仍可手动拖动调整）
+    for old_w, new_w in [
+        ("LEFT_PANEL_DEFAULT_WIDTH:260", "LEFT_PANEL_DEFAULT_WIDTH:347"),
+        ('"left",260,', '"left",347,'),
+    ]:
+        n_w = src.count(old_w)
+        if n_w != 1:
+            raise PatchError(f"[P5] 宽度锚点 {old_w} 命中 {n_w} 次")
+        src = src.replace(old_w, new_w)
+
     # ---------- P3-3：状态圆点（SessionItem 标题前） ----------
     pat_dot = r'\]\}\),\(0,(' + ID + r')\.jsxs\)\("div",\{className:"flex-1 min-w-0",children:\['
     m_dot = re.search(pat_dot, src)

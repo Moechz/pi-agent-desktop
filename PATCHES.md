@@ -113,7 +113,10 @@ body 字体栈 `-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hirag
    `style:{background:"var(--success-bg)",borderColor:"var(--success-border)",color:"var(--success)"}`（锚
    `"aria-label":D("sidebar.newSession"),`，⚠ 锚点截到逗号为止，含 `className:` 会把 style 插错位）。
    svg 用 currentColor 自动继承按钮 color。
-4. 自检标记：`PingFang SC`。
+4. 侧边栏默认宽度：宽度常量模块（webpack id 34442，含 `LEFT_PANEL_DEFAULT_WIDTH`/`clampPanelWidth`/
+   `getDefaultPanelWidths`）默认 260 → 347（加宽 1/3；clamp 范围 220–480、45% 视口内自动收敛）。
+   两处锚：`LEFT_PANEL_DEFAULT_WIDTH:260` 与 `"left",260,`（均全 chunk 唯一）。仍可手动拖边缘调整。
+5. 自检标记：`PingFang SC`。
 
 ## 5. 验证流程（每次适配后必做）
 
