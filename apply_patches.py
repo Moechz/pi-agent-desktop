@@ -6,6 +6,7 @@ Pi Agent Desktop UI 补丁自动重打器（语义锚点版）
   P1 会话完成后只留最后一条文本结果（消息级 + 块级 + 无文本整条隐藏）
   P2 输入框边框加强
   P3 侧边栏项目平铺 + 会话运行状态点（树构建器存档/轮询器/分组渲染/空态/圆点）
+     + 组头 ▼/▲ 折叠箭头（点击按目录展开/收起会话，状态存于组件 useState）
 用法：
   python3 apply_patches.py            # 打补丁（幂等，已打过则跳过）
   PI_STANDALONE=/path python3 ...     # 指定 standalone 目录（测试用）
@@ -170,11 +171,14 @@ def main():
     if not m_side:
         raise PatchError("[P3] 侧边栏组件签名未找到")
     S0 = m_side.end()
-    # 会话数组 state：[y,x]=r.useState([])
-    m_state = re.search(rf"\[(?P<y>{ID}),{ID}\]=(?:\(0,)?{ID}\.useState\)?\(\[\]\)", src[S0:])
+    # 会话数组 state：[y,x]=r.useState([])（捕获 React 命名空间变量名 r，供注入 hook 用）
+    m_state = re.search(
+        rf"\[(?P<y>{ID}),{ID}\]=(?:\(0,)?(?P<rct>{ID})\.useState\)?\(\[\]\)", src[S0:]
+    )
     if not m_state:
         raise PatchError("[P3] useState([]) 未找到")
     Y = m_state.group("y")
+    RCT = m_state.group("rct")
     P0 = S0 + m_state.end()
     # loadSessions：D=r.useCallback(async(
     m_load = re.search(rf"(?P<D>{ID})=(?:\(0,)?{ID}\.useCallback\)?\(async\(", src[P0:])
@@ -204,7 +208,12 @@ def main():
         "if(ch&&onTick)onTick()};poll();w.__piSM.timer=setInterval(poll,4e3)}})"
         f"({Y}.map(function(s){{return s.id}}),{D});"
     )
-    src = src[:RET] + poller + src[RET:]
+    # 折叠状态 hook（组件体顶层、根 return 前无条件执行，hook 顺序稳定）：
+    # __piCLst = {cwd:1} 已收起的组；__piCLset 切换函数
+    hook = (
+        f"var __piCS=(0,{RCT}.useState)({{}}),__piCLst=__piCS[0],__piCLset=__piCS[1];"
+    )
+    src = src[:RET] + hook + poller + src[RET:]
 
     # 分组渲染：替换树 map（组件 props 键名稳定）
     pat_tmap = (
@@ -218,6 +227,7 @@ def main():
     if len(m_tm) != 1:
         raise PatchError(f"[P3-groups] 命中 {len(m_tm)} 次")
     G = m_tm[0].groupdict()
+    # 分组渲染（v2：组头带 ▼/▲ 切换箭头，可按目录收起/展开会话）
     grouped = (
         "(function(){var gm={};for(var s of " + Y + "){(gm[s.cwd]=gm[s.cwd]||[]).push(s)}"
         "var gs=Object.keys(gm).map(function(cwd){var arr=gm[cwd];"
@@ -228,9 +238,18 @@ def main():
         "return gs.map(function(G){var run=0;"
         "for(var ses of G.arr){if(window.__piIsRun&&window.__piIsRun(ses.id))run++}"
         "var tree=window.__piBT(G.arr);"
+        "var TG=function(ev){ev.stopPropagation();__piCLset(function(pr){var n2=Object.assign({},pr);"
+        "if(n2[G.cwd])delete n2[G.cwd];else n2[G.cwd]=1;return n2})};"
         "return (0," + G["n"] + ".jsxs)(\"div\",{children:["
         "(0," + G["n"] + ".jsxs)(\"div\",{onClick:function(){return " + GS["ocwd"] + "?.(G.cwd)},"
         "style:{display:\"flex\",alignItems:\"center\",gap:6,padding:\"8px 12px 4px\",cursor:\"pointer\",userSelect:\"none\"},children:["
+        # 切换箭头：收起=▼(向下,点击展开,accent 色) / 展开=▲(向上,点击收起,muted 色)
+        "(0," + G["n"] + ".jsx)(\"span\",{onClick:TG,title:__piCLst[G.cwd]?\"expand\":\"collapse\","
+        "style:{display:\"inline-flex\",alignItems:\"center\",justifyContent:\"center\",padding:3,marginRight:1,flexShrink:0,"
+        "lineHeight:0,cursor:\"pointer\",borderRadius:4,color:__piCLst[G.cwd]?\"var(--accent)\":\"var(--text-muted)\"},"
+        "children:(0," + G["n"] + ".jsx)(\"svg\",{width:9,height:9,viewBox:\"0 0 24 24\",fill:\"none\",stroke:\"currentColor\","
+        "strokeWidth:2.5,strokeLinecap:\"round\",strokeLinejoin:\"round\",style:{display:\"block\"},"
+        "children:(0," + G["n"] + ".jsx)(\"path\",{d:__piCLst[G.cwd]?\"M6 9l6 6 6-6\":\"M18 15l-6-6-6 6\"})})}),"
         "(0," + G["n"] + ".jsx)(\"svg\",{width:11,height:11,viewBox:\"0 0 24 24\",fill:\"none\",stroke:\"currentColor\",strokeWidth:1.8,"
         "style:{color:\"var(--text-dim)\",flexShrink:0},children:(0," + G["n"] + ".jsx)(\"path\","
         "{d:\"M1 3A1 1 0 0 1 2 2H4L5 3.5H8.5a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-.5.5h-7A.5.5 0 0 1 1 8V3Z\"})}),"
@@ -241,7 +260,8 @@ def main():
         "run>0?(0," + G["n"] + ".jsx)(\"span\",{title:\"running\",style:{fontSize:9.5,fontWeight:700,padding:\"1px 6px\","
         "borderRadius:9999,background:\"var(--success-bg)\",color:\"var(--success)\","
         "border:\"1px solid var(--success-border)\",flexShrink:0},children:String(run)+\" \\u25b6\"}):null]}),"
-        "tree.map(function(r){return (0," + G["n"] + ".jsx)(" + G["Y"] + ",{node:r,selectedSessionId:" + G["sel"] + ","
+        # 已收起的组不渲染会话列表
+        "__piCLst[G.cwd]?null:tree.map(function(r){return (0," + G["n"] + ".jsx)(" + G["Y"] + ",{node:r,selectedSessionId:" + G["sel"] + ","
         "onSelectSession:OS,onRenamed:" + G["ren"] + ",onSessionDeleted:function(id){" + G["cb"] + "?.(id)," + G["ld"] + "()},"
         "onBranchSession:" + G["obs"] + ",onCloneSession:" + G["ocl"] + ",onExportSession:" + G["oex"] + ",depth:0},r.session.id)})"
         "]},G.cwd)})})()"
@@ -284,7 +304,7 @@ def main():
     )
     src = src[: m_dot.start()] + dot + src[m_dot.end():]
 
-    if MARKER not in src:
+    if MARKER not in src or "__piCLst" not in src:
         raise PatchError("自检失败：补丁标记未出现在产物中")
 
     tmp = chunk + ".tmp"

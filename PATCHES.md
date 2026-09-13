@@ -48,24 +48,33 @@
 未聚焦态样式串 `"color-mix(in srgb, var(--border) 70%, transparent)"`（全 chunk 唯一）
 → `"color-mix(in srgb, var(--text) 24%, transparent)"`。CSS 变量名随主题自适应，暗黑模式下清晰可见。
 
-## 4. P3 — 侧边栏平铺 + 运行状态点
+## 4. P3 — 侧边栏平铺 + 运行状态点 + 组头折叠箭头
 
 **产品语义**：左侧栏不再只显示单项目会话树，而是按 cwd 分组、全部会话平铺（组按最新活动排序，
 组头=项目目录名+执行中计数 `N ▶`，点击切换项目）；每会话前圆点 🟢(发光)=运行中 / ⚫(暗)=空闲。
 运行状态来自**轮询** `/api/agent/{id}`（GET 只读，不会孵化会话）的 `state.isStreaming`。
+组头最左侧有折叠箭头：▼(accent色)=已收起、点击向下展开；▲(muted色)=展开中、点击向上收起；
+点击箭头 `stopPropagation`，不会触发组头的切换项目。折叠状态存于组件内新增的 `useState`
+（`__piCLst` map: cwd→1），应用重启后回到默认全展开。
 
-**变换**（6 处）：
+**变换**（7 处）：
 1. 树构建器存档：`Z=function(E){let T=new Map;for(let N of E)T.set(N.id,{session:N,children:[]});` … `return A(R),R}(U);`
    → 改名挂到 `window.__piBT`（首定义后复用），供分组渲染调用。
 2. 轮询器注入（组件 return 前）：`window.__piSM`（状态 map + key + 4s interval）、`window.__piIsRun(id)` 访问器；
    key 变化（项目集合变）时重建。注入位置锚 = 组件根 `return(0,n.jsxs)("div",{style:{display:"flex",flexDirection:"column",height:"100%",overflow:"hidden"}}`（取组件内第一个）。
+   同位置（轮询器前）注入折叠状态 hook：`var __piCS=(0,<RCT>.useState)({}),__piCLst=__piCS[0],__piCLset=__piCS[1];`
+   —— React 命名空间变量 `<RCT>`（如 `r`）从同组件 `[y,x]=(0,r.useState)([])` 捕获；
+   组件体在根 return 前无提前 return（已验证），hook 顺序稳定安全。
 3. 分组渲染替换：原 `Z.map((R)=>(0,n.jsx)(Y,{node:R,selectedSessionId:…,onSessionDeleted:P=>{CB?.(P),LD()},…},R.session.id))`
-   整体替换为 IIFE：按 `y`(sessions) 分组→排序→每组调 `window.__piBT(arr)` 建树→渲染组头（svg 文件夹图标 +
+   整体替换为 IIFE：按 `y`(sessions) 分组→排序→每组调 `window.__piBT(arr)` 建树→渲染组头（▼/▲ 切换箭头 + svg 文件夹图标 +
    cwd 末两段 + 徽章）+ 会话条目。选中项目高亮用 `p===G.cwd`（selectedCwd prop）。
+   箭头 onClick=`TG`（stopPropagation + `__piCLset` 切换 `__piCLst[G.cwd]`）；chevron path 收起=`M6 9l6 6 6-6`(▼)/展开=`M18 15l-6-6-6 6`(▲)；
+   会话列表渲染包裹条件 `__piCLst[G.cwd]?null:tree.map(...)`（已收起的组整组隐藏）。
 4. 空态改判定：`!A&&!B&&0===U.length&&`（过滤后数组）→ `0===y.length&&`（全部会话为空才显示空态）。
 5. 状态圆点：SessionItem 内 `className:"flex-1 min-w-0"` 容器前插 span（8px 圆点，运行=var(--success)+glow+title"running"）。
    session 变量名从往前最近的 `function K({session:S,isSelected:` 签名捕获。
-6. 以上涉及侧边栏作用域变量名的，全部从组件签名
+6. 自检：除 `__piSM` 外同时校验 `__piCLst` 在产物中。
+7. 以上涉及侧边栏作用域变量名的，全部从组件签名
    `function X({selectedSessionId:SEL,onSelectSession:OSEL,…,selectedCwd:SCWD,onCwdChange:OCWD,…})` 捕获
    （prop 键名稳定）。React hook 编译形态是 `(0,r.useState)([])` / `(0,r.useCallback)(async(`（带 0 前缀包裹），正则要兼容。
 
