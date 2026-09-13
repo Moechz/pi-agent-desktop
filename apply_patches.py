@@ -268,9 +268,6 @@ def main():
         "children:(0," + G["n"] + ".jsx)(\"svg\",{width:14,height:14,viewBox:\"0 0 24 24\",fill:\"none\",stroke:\"currentColor\","
         "strokeWidth:3,strokeLinecap:\"round\",strokeLinejoin:\"round\",style:{display:\"block\"},"
         "children:(0," + G["n"] + ".jsx)(\"path\",{d:__piCLst[G.cwd]?\"M6 9l6 6 6-6\":\"M18 15l-6-6-6 6\"})})}),"
-        "(0," + G["n"] + ".jsx)(\"svg\",{width:11,height:11,viewBox:\"0 0 24 24\",fill:\"none\",stroke:\"currentColor\",strokeWidth:1.8,"
-        "style:{color:\"var(--text-dim)\",flexShrink:0},children:(0," + G["n"] + ".jsx)(\"path\","
-        "{d:\"M1 3A1 1 0 0 1 2 2H4L5 3.5H8.5a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-.5.5h-7A.5.5 0 0 1 1 8V3Z\"})}),"
         "(0," + G["n"] + ".jsx)(\"span\",{title:G.cwd,style:{fontSize:13,fontWeight:600,letterSpacing:\"0.03em\","
         "textTransform:\"uppercase\",flex:1,overflow:\"hidden\",textOverflow:\"ellipsis\",whiteSpace:\"nowrap\","
         "color:" + GS["scwd"] + "===G.cwd?\"var(--accent)\":\"var(--text-muted)\"},"
@@ -278,10 +275,11 @@ def main():
         "run>0?(0," + G["n"] + ".jsx)(\"span\",{title:\"running\",style:{fontSize:9.5,fontWeight:700,padding:\"1px 6px\","
         "borderRadius:9999,background:\"var(--success-bg)\",color:\"var(--success)\","
         "border:\"1px solid var(--success-border)\",flexShrink:0},children:String(run)+\" \\u25b6\"}):null]}),"
-        # 已收起的组不渲染会话列表
-        "__piCLst[G.cwd]?null:tree.map(function(r){return (0," + G["n"] + ".jsx)(" + G["Y"] + ",{node:r,selectedSessionId:" + G["sel"] + ","
+        # 已收起的组不渲染会话列表；未收起时包 paddingLeft:14 容器（二级菜单缩进效果）
+        "__piCLst[G.cwd]?null:(0," + G["n"] + ".jsx)(\"div\",{style:{paddingLeft:14},children:tree.map(function(r){return (0,"
+        + G["n"] + ".jsx)(" + G["Y"] + ",{node:r,selectedSessionId:" + G["sel"] + ","
         "onSelectSession:OS,onRenamed:" + G["ren"] + ",onSessionDeleted:function(id){" + G["cb"] + "?.(id)," + G["ld"] + "()},"
-        "onBranchSession:" + G["obs"] + ",onCloneSession:" + G["ocl"] + ",onExportSession:" + G["oex"] + ",depth:0},r.session.id)})"
+        "onBranchSession:" + G["obs"] + ",onCloneSession:" + G["ocl"] + ",onExportSession:" + G["oex"] + ",depth:0},r.session.id)})})"
         "]},G.cwd)})})()"
     )
     src = src[: m_tm[0].start()] + grouped + src[m_tm[0].end():]

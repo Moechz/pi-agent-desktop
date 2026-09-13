@@ -76,8 +76,9 @@
    —— React 命名空间变量 `<RCT>`（如 `r`）从同组件 `[y,x]=(0,r.useState)([])` 捕获；
    组件体在根 return 前无提前 return（已验证），hook 顺序稳定安全。
 3. 分组渲染替换：原 `Z.map((R)=>(0,n.jsx)(Y,{node:R,selectedSessionId:…,onSessionDeleted:P=>{CB?.(P),LD()},…},R.session.id))`
-   整体替换为 IIFE：按 `y`(sessions) 分组→排序→每组调 `window.__piBT(arr)` 建树→渲染组头（▼/▲ 切换箭头 + svg 文件夹图标 +
-   cwd 末两段 + 徽章）+ 会话条目。选中项目高亮用 `p===G.cwd`（selectedCwd prop）。
+   整体替换为 IIFE：按 `y`(sessions) 分组→排序→每组调 `window.__piBT(arr)` 建树→渲染组头（▼/▲ 切换箭头 +
+   cwd 末两段 + 徽章，**无文件夹图标**）+ 会话条目。选中项目高亮用 `p===G.cwd`（selectedCwd prop）。
+   会话列表包 `paddingLeft:14` 容器形成二级菜单缩进（嵌套子会话层级线随容器整体右移）。
    箭头 onClick=`TG`（stopPropagation + `__piCLset` 切换 `__piCLst[G.cwd]`）；chevron path 收起=`M6 9l6 6 6-6`(▼)/展开=`M18 15l-6-6-6 6`(▲)；
    会话列表渲染包裹条件 `__piCLst[G.cwd]?null:tree.map(...)`（已收起的组整组隐藏）。
 4. 空态改判定：`!A&&!B&&0===U.length&&`（过滤后数组）→ `0===y.length&&`（全部会话为空才显示空态）。
