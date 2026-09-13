@@ -53,7 +53,7 @@
 **产品语义**：左侧栏不再只显示单项目会话树，而是按 cwd 分组、全部会话平铺（组按最新活动排序，
 组头=项目目录名+执行中计数 `N ▶`，点击切换项目）；每会话前圆点 🟢(发光)=运行中 / ⚫(暗)=空闲。
 运行状态来自**轮询** `/api/agent/{id}`（GET 只读，不会孵化会话）的 `state.isStreaming`。
-组头最左侧有折叠箭头：▼(accent色)=已收起、点击向下展开；▲(muted色)=展开中、点击向上收起；
+组头最左侧有折叠箭头（14px、strokeWidth 3 加粗，看得清）：▼(accent色)=已收起、点击向下展开；▲(muted色)=展开中、点击向上收起；
 点击箭头 `stopPropagation`，不会触发组头的切换项目。折叠状态存于组件内新增的 `useState`
 （`__piCLst` map: cwd→1），应用重启后回到默认全展开。
 
@@ -71,7 +71,7 @@
    箭头 onClick=`TG`（stopPropagation + `__piCLset` 切换 `__piCLst[G.cwd]`）；chevron path 收起=`M6 9l6 6 6-6`(▼)/展开=`M18 15l-6-6-6 6`(▲)；
    会话列表渲染包裹条件 `__piCLst[G.cwd]?null:tree.map(...)`（已收起的组整组隐藏）。
 4. 空态改判定：`!A&&!B&&0===U.length&&`（过滤后数组）→ `0===y.length&&`（全部会话为空才显示空态）。
-5. 状态圆点：SessionItem 内 `className:"flex-1 min-w-0"` 容器前插 span（8px 圆点，运行=var(--success)+glow+title"running"）。
+5. 状态圆点：SessionItem 内 `className:"flex-1 min-w-0"` 容器前插 span（8px 圆点；运行=鲜绿 #22e06b + 大光晕 0 0 9px 2px rgba(34,224,107,.75) + title"running"；空闲=var(--text-muted) opacity .55）。
    session 变量名从往前最近的 `function K({session:S,isSelected:` 签名捕获。
 6. 自检：除 `__piSM` 外同时校验 `__piCLst` 在产物中。
 7. 以上涉及侧边栏作用域变量名的，全部从组件签名

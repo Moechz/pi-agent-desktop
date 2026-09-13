@@ -243,12 +243,12 @@ def main():
         "return (0," + G["n"] + ".jsxs)(\"div\",{children:["
         "(0," + G["n"] + ".jsxs)(\"div\",{onClick:function(){return " + GS["ocwd"] + "?.(G.cwd)},"
         "style:{display:\"flex\",alignItems:\"center\",gap:6,padding:\"8px 12px 4px\",cursor:\"pointer\",userSelect:\"none\"},children:["
-        # 切换箭头：收起=▼(向下,点击展开,accent 色) / 展开=▲(向上,点击收起,muted 色)
+        # 切换箭头：收起=▼(向下,点击展开,accent 色) / 展开=▲(向上,点击收起,muted 色)，14px 加粗描边看得清
         "(0," + G["n"] + ".jsx)(\"span\",{onClick:TG,title:__piCLst[G.cwd]?\"expand\":\"collapse\","
-        "style:{display:\"inline-flex\",alignItems:\"center\",justifyContent:\"center\",padding:3,marginRight:1,flexShrink:0,"
+        "style:{display:\"inline-flex\",alignItems:\"center\",justifyContent:\"center\",padding:2,marginRight:2,flexShrink:0,"
         "lineHeight:0,cursor:\"pointer\",borderRadius:4,color:__piCLst[G.cwd]?\"var(--accent)\":\"var(--text-muted)\"},"
-        "children:(0," + G["n"] + ".jsx)(\"svg\",{width:9,height:9,viewBox:\"0 0 24 24\",fill:\"none\",stroke:\"currentColor\","
-        "strokeWidth:2.5,strokeLinecap:\"round\",strokeLinejoin:\"round\",style:{display:\"block\"},"
+        "children:(0," + G["n"] + ".jsx)(\"svg\",{width:14,height:14,viewBox:\"0 0 24 24\",fill:\"none\",stroke:\"currentColor\","
+        "strokeWidth:3,strokeLinecap:\"round\",strokeLinejoin:\"round\",style:{display:\"block\"},"
         "children:(0," + G["n"] + ".jsx)(\"path\",{d:__piCLst[G.cwd]?\"M6 9l6 6 6-6\":\"M18 15l-6-6-6 6\"})})}),"
         "(0," + G["n"] + ".jsx)(\"svg\",{width:11,height:11,viewBox:\"0 0 24 24\",fill:\"none\",stroke:\"currentColor\",strokeWidth:1.8,"
         "style:{color:\"var(--text-dim)\",flexShrink:0},children:(0," + G["n"] + ".jsx)(\"path\","
@@ -296,9 +296,9 @@ def main():
     dot = (
         ']}),(0,' + m_dot.group(1) + '.jsx)("span",{title:window.__piIsRun&&window.__piIsRun(' + S + '.id)?"running":"idle",'
         "style:{width:8,height:8,borderRadius:9999,flexShrink:0,marginLeft:2,marginRight:8,"
-        "background:window.__piIsRun&&window.__piIsRun(" + S + '.id)?"var(--success)":"var(--text-dim)",'
-        "opacity:window.__piIsRun&&window.__piIsRun(" + S + '.id)?1:.35,'
-        "boxShadow:window.__piIsRun&&window.__piIsRun(" + S + '.id)?"0 0 7px var(--success)":"none",'
+        "background:window.__piIsRun&&window.__piIsRun(" + S + '.id)?"#22e06b":"var(--text-muted)",'
+        "opacity:window.__piIsRun&&window.__piIsRun(" + S + '.id)?1:.55,'
+        "boxShadow:window.__piIsRun&&window.__piIsRun(" + S + '.id)?"0 0 9px 2px rgba(34,224,107,.75)":"none",'
         'transition:"background .3s,opacity .3s,box-shadow .3s"}}),'
         '(0,' + m_dot.group(1) + '.jsxs)("div",{className:"flex-1 min-w-0",children:['
     )
