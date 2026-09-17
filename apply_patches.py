@@ -8,7 +8,8 @@ Pi Agent Desktop UI 补丁自动重打器（语义锚点版）
   P3 侧边栏项目平铺 + 会话运行状态点（树构建器存档/轮询器/分组渲染/空态/圆点）
      + 组头 ▼/▲ 折叠箭头（点击按目录展开/收起会话，状态存于组件 useState）
   P5 侧边栏菜单字体对齐 DSH Desktop（系统字体栈 PingFang SC 等；菜单 13px/次级 12px）
-  P6 菜单/弹窗不透明（CSS：--material-popover 两主题去 alpha；独立于 JS 幂等）
+  P6 菜单/弹窗不透明（CSS：--material-popover→var(--bg) + --bg-elevated/--bg-panel 去 alpha；
+     JS：flyout/危险弹卡内联背景→var(--bg)；独立于 JS 幂等）
   P7 输入框下方工具行图标加大（附件/模型/模式/预设/更多控件 +3px）
 用法：
   python3 apply_patches.py            # 打补丁（幂等，已打过则跳过）
@@ -62,30 +63,42 @@ def find_css():
 
 
 def patch_css():
-    """P6：菜单/弹窗不透明且无色偏。
-    透明度来源是设计默认值 --material-popover 带 alpha（暗 #161b23e6≈90%、
-    亮 #ffffffdb≈86%）+ .material-popover 的 30px backdrop blur；不透明覆盖规则
-    只在 prefers-reduced-transparency/@media 里，普通设置不生效。
-    修法（v2）：两主题的变量都改为 var(--bg)——完全跟随主题基础背景
-    （暗 #050505 纯中性近黑 / 亮 #f8f9fc 近白），不透明、无色偏、明暗自适应，
-    弹窗与主背景同色，靠 border/shadow 区分层次。
-    兼容三种历史状态：原版带 alpha、v1 纯色（#161b23/#ffffff）、已是 v2。
-    .ui-dialog-surface 等弹窗同用此变量，一并生效。幂等。"""
+    """P6（v3）：菜单/弹窗全面不透明。
+    ① --material-popover 两处归一为 var(--bg)（不透明+无色偏+明暗自适应，
+      覆盖 material-popover 系菜单/下拉/对话框/toast）。
+    ② --bg-elevated / --bg-panel 去 alpha（保留自身色调仅变实）：
+      flyout 二级弹卡、模态框表头、工具面板、权限确认按钮/输入框等
+      65% 半透明表面全部变实（原设计靠 backdrop blur 混合底下内容）。
+    两组独立幂等（部分打过的中间态也能收敛）。官方不透明覆盖规则只在
+    prefers-reduced-transparency/@media 里，普通设置不生效，故需打补丁。"""
     css, data = find_css()
-    if data.count("--material-popover:var(--bg)") == 2:
+    changed = False
+    # ① popover 族 → var(--bg)（任意历史色值部归一，兼容原版/v1/v2 三态）
+    if data.count("--material-popover:var(--bg)") != 2:
+        pat_hex = re.compile(r"--material-popover:#[0-9a-fA-F]+")
+        if len(pat_hex.findall(data)) != 2:
+            raise PatchError("[P6] --material-popover 色值锚点异常")
+        data = pat_hex.sub("--material-popover:var(--bg)", data)
+        changed = True
+    # ② elevated/panel 去 alpha：8位hex → 6位；已是 6位×2 则跳过
+    for var in ("--bg-elevated", "--bg-panel"):
+        pat8 = re.compile(re.escape(var) + r":(#[0-9a-fA-F]{6})[0-9a-fA-F]{2}")
+        n8 = len(pat8.findall(data))
+        if n8 == 2:
+            data = pat8.sub(lambda mm, v=var: v + ":" + mm.group(1), data)
+            changed = True
+        else:
+            n6 = len(re.findall(re.escape(var) + r":#[0-9a-fA-F]{6}(?![0-9a-fA-F])", data))
+            if n6 != 2:
+                raise PatchError(f"[P6] {var} 锚点异常（8位×{n8} / 6位×{n6}）")
+    if changed:
+        tmp = css + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(data)
+        os.replace(tmp, css)
+        print(f"✅ [P6] 弹窗/面板不透明已写入 {css}")
+    else:
         print("ℹ️ [P6] CSS 已是补丁状态")
-        return 0
-    # 任意十六进制色值（原版带 alpha 或 v1 纯色）都归一为 var(--bg)；期望恰两处（:root 与 html.dark）
-    pat_hex = re.compile(r"--material-popover:#[0-9a-fA-F]+")
-    hits = list(pat_hex.finditer(data))
-    if len(hits) != 2:
-        raise PatchError(f"[P6] --material-popover 色值锚点命中 {len(hits)} 次（期望 2）")
-    data = pat_hex.sub("--material-popover:var(--bg)", data)
-    tmp = css + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        f.write(data)
-    os.replace(tmp, css)
-    print(f"✅ [P6] 弹窗不透明(var(--bg)) 已写入 {css}")
     return 0
 
 
@@ -467,6 +480,22 @@ def main():
         seg7 = seg7.replace(old7, new7, 1)
         src = src[: m7[0].end()] + seg7 + src[m7[0].end() + 2500 :]
 
+    # ---------- P6b：JS 内联半透明菜单背景 → var(--bg)（不走 material-popover 的弹层） ----------
+    # flyout 二级弹卡用 var(--bg-elevated)（65%）、危险提示弹卡用 var(--bg-panel)（65%），
+    # 与主弹窗同色无色偏；其余 bg-elevated/bg-panel 用途（表头/按钮/输入框）由 CSS 变量去 alpha 覆盖
+    for name6, old6, new6 in [
+        ("flyout 菜单",
+         'right:"100%",marginRight:6,background:"var(--bg-elevated)"',
+         'right:"100%",marginRight:6,background:"var(--bg)"'),
+        ("危险提示弹卡",
+         'bottom:"calc(100% + 6px)",right:0,background:"var(--bg-panel)"',
+         'bottom:"calc(100% + 6px)",right:0,background:"var(--bg)"'),
+    ]:
+        c6 = src.count(old6)
+        if c6 != 1:
+            raise PatchError(f"[P6b] {name6} 锚点命中 {c6} 次")
+        src = src.replace(old6, new6)
+
     # ---------- P3-3：状态圆点（SessionItem 标题前） ----------
     pat_dot = r'\]\}\),\(0,(' + ID + r')\.jsxs\)\("div",\{className:"flex-1 min-w-0",children:\['
     m_dot = re.search(pat_dot, src)
@@ -494,6 +523,8 @@ def main():
         raise PatchError("自检失败：补丁标记未出现在产物中")
     if src.count('svg",{width:"18",height:"18",viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:"1.8"') != 1:
         raise PatchError("自检失败：P7 图标标记异常")
+    if src.count('marginRight:6,background:"var(--bg)"') != 1:
+        raise PatchError("自检失败：P6b 标记异常")
 
     tmp = chunk + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:

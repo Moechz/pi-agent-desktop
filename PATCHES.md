@@ -127,14 +127,29 @@ body 字体栈 `-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hirag
 变量带 alpha（暗 `#161b23e6`≈90%、亮 `#ffffffdb`≈86%）；官方的不透明覆盖规则只在
 `@media (prefers-reduced-transparency:reduce)` 和 `(prefers-contrast:more)` 里，普通设置不生效。
 
-**P6 变换（v2）**（CSS 文件，独立于 JS 幂等，在 main() 里先于 JS MARKER 检查执行）：
+**P6 变换（v3，全局扫描后两层修复）**（CSS 文件，独立于 JS 幂等，在 main() 里先于 JS MARKER 检查执行；
+两组变换各自独立幂等，部分打过的中间态也能收敛）：
 - `find_css()`：`chunks/*.css` 中含 `--material-popover:` 的那个（文件名哈希随构建变）
-- 正则 `--material-popover:#[0-9a-fA-F]+` 恰中两处（:root 与 html.dark）→ 全部归一为
-  `--material-popover:var(--bg)`（暗 #050505 纯中性近黑 / 亮 #f8f9fc 近白，随主题自动切换；
-  CSS 变量引用在使用时解析，定义顺序无关）。归一写法兼容三种历史状态：原版带 alpha、
-  v1 纯色（#161b23/#ffffff）、已是 v2（count==2 即跳过）
+- ① popover 族：正则 `--material-popover:#[0-9a-fA-F]+` 恰中两处（:root 与 html.dark）
+  → 全部归一为 `var(--bg)`（暗 #050505 纯中性近黑 / 亮 #f8f9fc 近白，随主题自动切换；
+  CSS 变量引用在使用时解析，定义顺序无关）。归一写法兼容原版带 alpha/v1 纯色/v2 三态。
+  覆盖 material-popover 系菜单/下拉/对话框/toast/内部 modal 卡
+- ② 弹卡/面板族：`--bg-elevated` / `--bg-panel` 各两处 8位hex → 去 alpha 保色调
+  （暗 #0c1118/#10151d、亮 #ffffff/#f3f5f8）：flyout 二级弹卡、工具面板表头、
+  模态框标题栏、权限确认按钮/输入框等 65% 半透明表面全部变实；hover 态仍工作
 - 背景 var(--bg) 全不透明后 backdrop blur 无视觉效果，不必动
-- `.ui-dialog-surface` 等同用此变量，一并生效；弹窗内 10px 勾选标等小图标未动（非本次诉求）
+
+**P6b 变换（JS）**：两个不走 material-popover 的内联弹层背景直接改 var(--bg)，
+与主弹窗同色无色偏：
+- flyout 二级弹卡：锚 `right:"100%",marginRight:6,background:"var(--bg-elevated)"`
+- 危险提示弹卡（附件出错等）：锚 `bottom:"calc(100% + 6px)",right:0,background:"var(--bg-panel)"`
+（各验证全 chunk 唯一）
+
+**遗留的透明面（有意保留）**：对话框背后的变暗遮罩 .ui-dialog-backdrop（#0006b+blur，
+横幅 scrim 语义）；顶部工具栏/侧边栏/输入框的 material-toolbar/sidebar/input 毛玻璃
+（ chrome 不是菜单）；消息气泡 --assistant-bg/--tool-bg（内容非弹层）；
+hover/border/focus 类半透明色（本来就是设计薄涂）。若用户后续要求一并变实，
+同理处理（material-input→var(--bg) 等）。
 
 **P7 变换**（JS，两段）：
 1. 工具行窗口（输入框下方 `style:{marginTop:8,display:"flex",alignItems:"center",gap:6,minHeight:32}`
@@ -149,6 +164,9 @@ body 字体栈 `-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hirag
 **P7 坑**：自检标记不能用裸 `width:"18"`（原 chunk 本就有一个 18x18），用附件图标全签名
 （含 viewBox 0 0 24 24 + strokeWidth 1.8）验 count==1。发送按钮（38px 圆钮内 15px）在输入框内，
 非"下方图标"，未动。
+
+**P6 坑**：部分打过 CSS 的中间态（popover 已 var(--bg) 但 elevated 未打）不能早退 return，
+必须逐组独立判断；正则去 alpha 用 `sub(lambda)` 避免反斜杠组引用问题。
 
 ## 5. 验证流程（每次适配后必做）
 
