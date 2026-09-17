@@ -151,7 +151,7 @@ body 字体栈 `-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hirag
 hover/border/focus 类半透明色（本来就是设计薄涂）。若用户后续要求一并变实，
 同理处理（material-input→var(--bg) 等）。
 
-**P7 变换**（JS，两段）：
+**P7 变换**（JS，三段）：
 1. 工具行窗口（输入框下方 `style:{marginTop:8,display:"flex",alignItems:"center",gap:6,minHeight:32}`
    唯一锚点，窗口 6000 字符）：窗口内恰一个的 `svg",{width:"15"→"18"`（附件）、`"13"→"16"`
    （更多控件 sliders）、`"11"→"14"`（思考级别选择器）
@@ -160,10 +160,14 @@ hover/border/focus 类半透明色（本来就是设计薄涂）。若用户后�
    模式切换 `function X({mode:,disabled:,onChange:})` 首个 14→17；
    工具预设 `function X({isStreaming:,toolPreset:,onToolPresetChange:})` 首个 11→14
    （各取签名后 2500 字符窗口内首个命中；弹窗内 10px 勾选标不动）
+3. 发送按钮图标 15→18（用户反馈右下角仍太小，对齐左下角附件 18px）：锚
+   `svg",{width:"15",height:"15",viewBox:"0 0 14 14"` 全 chunk 恰 2 处——主发送
+   （`chat.sendMessage`）与排队追问（`chat.sendRunningAgent`/`queueFollowUp`）两个 38px
+   圆钮（`composer-icon-button`）内的箭头，两处全换；viewBox 14 与工具行图标（viewBox 24）
+   区分不互撞，替换等长不影响后续坐标
 
 **P7 坑**：自检标记不能用裸 `width:"18"`（原 chunk 本就有一个 18x18），用附件图标全签名
-（含 viewBox 0 0 24 24 + strokeWidth 1.8）验 count==1。发送按钮（38px 圆钮内 15px）在输入框内，
-非"下方图标"，未动。
+（含 viewBox 0 0 24 24 + strokeWidth 1.8）验 count==1，发送图标用 viewBox 14 签名验 count==2。
 
 **P6 坑**：部分打过 CSS 的中间态（popover 已 var(--bg) 但 elevated 未打）不能早退 return，
 必须逐组独立判断；正则去 alpha 用 `sub(lambda)` 避免反斜杠组引用问题。

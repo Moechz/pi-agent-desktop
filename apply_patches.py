@@ -10,7 +10,8 @@ Pi Agent Desktop UI 补丁自动重打器（语义锚点版）
   P5 侧边栏菜单字体对齐 DSH Desktop（系统字体栈 PingFang SC 等；菜单 13px/次级 12px）
   P6 菜单/弹窗不透明（CSS：--material-popover→var(--bg) + --bg-elevated/--bg-panel 去 alpha；
      JS：flyout/危险弹卡内联背景→var(--bg)；独立于 JS 幂等）
-  P7 输入框下方工具行图标加大（附件/模型/模式/预设/更多控件 +3px）
+  P7 输入框下方图标加大（工具行：附件/模型/模式/预设/更多控件 +3px；
+     发送按钮：主发送 + 排队追问圆钮内箭头 15→18，对齐左下角附件图标）
 用法：
   python3 apply_patches.py            # 打补丁（幂等，已打过则跳过）
   PI_STANDALONE=/path python3 ...     # 指定 standalone 目录（测试用）
@@ -479,6 +480,15 @@ def main():
             raise PatchError(f"[P7] {label7}图标锚点未找到")
         seg7 = seg7.replace(old7, new7, 1)
         src = src[: m7[0].end()] + seg7 + src[m7[0].end() + 2500 :]
+    # 3) 发送按钮图标 15→18（用户反馈右下角仍太小，对齐左下角附件 18px）：
+    #    主发送与排队追问两个 38px 圆钮（composer-icon-button）内的箭头 svg，
+    #    viewBox 0 0 14 14 与工具行图标（viewBox 24）区分，恰 2 处、等长替换不影响坐标
+    old_snd = 'svg",{width:"15",height:"15",viewBox:"0 0 14 14"'
+    new_snd = 'svg",{width:"18",height:"18",viewBox:"0 0 14 14"'
+    c_snd = src.count(old_snd)
+    if c_snd != 2:
+        raise PatchError(f"[P7] 发送按钮图标锚点命中 {c_snd} 次（期望 2）")
+    src = src.replace(old_snd, new_snd)
 
     # ---------- P6b：JS 内联半透明菜单背景 → var(--bg)（不走 material-popover 的弹层） ----------
     # flyout 二级弹卡用 var(--bg-elevated)（65%）、危险提示弹卡用 var(--bg-panel)（65%），
@@ -523,6 +533,8 @@ def main():
         raise PatchError("自检失败：补丁标记未出现在产物中")
     if src.count('svg",{width:"18",height:"18",viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:"1.8"') != 1:
         raise PatchError("自检失败：P7 图标标记异常")
+    if src.count('svg",{width:"18",height:"18",viewBox:"0 0 14 14"') != 2:
+        raise PatchError("自检失败：P7 发送按钮图标标记异常")
     if src.count('marginRight:6,background:"var(--bg)"') != 1:
         raise PatchError("自检失败：P6b 标记异常")
 
