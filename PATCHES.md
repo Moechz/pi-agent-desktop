@@ -118,13 +118,44 @@ body 字体栈 `-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hirag
    两处锚：`LEFT_PANEL_DEFAULT_WIDTH:260` 与 `"left",260,`（均全 chunk 唯一）。仍可手动拖边缘调整。
 5. 自检标记：`PingFang SC`。
 
+## 4c. P6 — 菜单弹窗不透明 + P7 — 输入框下方图标加大
+
+**P6 产品语义**：所有菜单/弹窗（右键菜单、模型/模式/预设下拉、对话框等）背景全不透明。
+透明度来自设计默认值：`.material-popover{background:var(--material-popover);
+-webkit-backdrop-filter:blur(30px)saturate(160%)}`，变量带 alpha（暗 `#161b23e6`≈90%、
+亮 `#ffffffdb`≈86%）；官方的不透明覆盖规则只在 `@media (prefers-reduced-transparency:reduce)`
+和 `(prefers-contrast:more)` 里，普通设置不生效。
+
+**P6 变换**（CSS 文件，独立于 JS 幂等，在 main() 里先于 JS MARKER 检查执行）：
+- `find_css()`：`chunks/*.css` 中含 `--material-popover:` 的那个（文件名哈希随构建变）
+- 两处替换（各验证恰一处）：`--material-popover:#161b23e6`→`#161b23`（html.dark）、
+  `--material-popover:#ffffffdb`→`#ffffff`（:root）。背景全不透明后 backdrop blur 无视觉效果，不必动
+- `.ui-dialog-surface` 等同用此变量，一并变实；弹窗内 10px 勾选标等小图标未动（非本次诉求）
+- 幂等判定用 `re.escape(new)+r"(?![0-9a-fA-F])"`（⚠ `#161b23` 是 `#161b23e6` 的子串，
+  简单 `in` 会误判已打）
+
+**P7 变换**（JS，两段）：
+1. 工具行窗口（输入框下方 `style:{marginTop:8,display:"flex",alignItems:"center",gap:6,minHeight:32}`
+   唯一锚点，窗口 6000 字符）：窗口内恰一个的 `svg",{width:"15"→"18"`（附件）、`"13"→"16"`
+   （更多控件 sliders）、`"11"→"14"`（思考级别选择器）
+2. 三个工具行组件触发图标（**压缩名 dt/ds/da 会变，锚 props 签名**）：
+   模型选择器 `function X({isStreaming:,model:,modelNames:,modelList:,onModelChange:})` 首个 14→17；
+   模式切换 `function X({mode:,disabled:,onChange:})` 首个 14→17；
+   工具预设 `function X({isStreaming:,toolPreset:,onToolPresetChange:})` 首个 11→14
+   （各取签名后 2500 字符窗口内首个命中；弹窗内 10px 勾选标不动）
+
+**P7 坑**：自检标记不能用裸 `width:"18"`（原 chunk 本就有一个 18x18），用附件图标全签名
+（含 viewBox 0 0 24 24 + strokeWidth 1.8）验 count==1。发送按钮（38px 圆钮内 15px）在输入框内，
+非"下方图标"，未动。
+
 ## 5. 验证流程（每次适配后必做）
 
 ```bash
-# 1) 在原始备份副本上端到端测试（模拟更新后的全新产物）
+# 1) 在原始备份副本上端到端测试（模拟更新后的全新产物；⚠ 需同时拷 JS 和 CSS）
 rm -rf /tmp/pi-test && mkdir -p /tmp/pi-test/.next/static/chunks
 cp backup/0wz_4dmun1la1.js.orig /tmp/pi-test/.next/static/chunks/app-chunk.js
-PI_STANDALONE=/tmp/pi-test python3 apply_patches.py        # 应 exit 0
+cp backup/0_d0l-y8ld00j.css.orig /tmp/pi-test/.next/static/chunks/theme.css
+PI_STANDALONE=/tmp/pi-test python3 apply_patches.py        # 应 exit 0（含 [P6] CSS 写入）
 PI_STANDALONE=/tmp/pi-test python3 apply_patches.py        # 第二次应打印"已是补丁状态，跳过"
 
 # 2) 语法校验（本机无 node，用 JavaScriptCore）
@@ -133,8 +164,8 @@ osascript -l JavaScript -e 'ObjC.import("Foundation");
   new Function($.NSString.stringWithContentsOfFileEncodingError("/tmp/check.mjs",4,null).js);"OK"'
 # → 输出 OK（报错即语法有问题，重点查引号转义）
 
-# 3) 标记检查：__piSM / __piBT / __piIsRun / var(--text) 24% / "text"=== 等关键子串均在
-# 4) 重启应用目视验证四组效果（见 README 表格）
+# 3) 标记检查：__piSM / __piBT / __piIsRun / var(--text) 24% / "text"=== / width:"17" 等关键子串均在
+# 4) 重启应用目视验证六组效果（见 README 表格）
 ```
 
 ## 6. 重新适配指南（锚点失配时）

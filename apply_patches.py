@@ -8,6 +8,8 @@ Pi Agent Desktop UI 补丁自动重打器（语义锚点版）
   P3 侧边栏项目平铺 + 会话运行状态点（树构建器存档/轮询器/分组渲染/空态/圆点）
      + 组头 ▼/▲ 折叠箭头（点击按目录展开/收起会话，状态存于组件 useState）
   P5 侧边栏菜单字体对齐 DSH Desktop（系统字体栈 PingFang SC 等；菜单 13px/次级 12px）
+  P6 菜单/弹窗不透明（CSS：--material-popover 两主题去 alpha；独立于 JS 幂等）
+  P7 输入框下方工具行图标加大（附件/模型/模式/预设/更多控件 +3px）
 用法：
   python3 apply_patches.py            # 打补丁（幂等，已打过则跳过）
   PI_STANDALONE=/path python3 ...     # 指定 standalone 目录（测试用）
@@ -47,6 +49,51 @@ def find_chunk():
     raise PatchError("找不到目标 chunk（应用结构可能大改）")
 
 
+def find_css():
+    """定位主题 CSS（含 --material-popover 变量的那个，文件名随内容哈希变）"""
+    for f in sorted(glob.glob(os.path.join(STANDALONE, ".next/static/chunks/*.css"))):
+        try:
+            data = open(f, encoding="utf-8").read()
+        except OSError:
+            continue
+        if "--material-popover:" in data:
+            return f, data
+    raise PatchError("找不到主题 CSS（应用结构可能大改）")
+
+
+def patch_css():
+    """P6：菜单/弹窗不透明。
+    透明度来源是设计默认值 --material-popover 带 alpha（暗 #161b23e6≈90%、
+    亮 #ffffffdb≈86%）+ .material-popover 的 30px backdrop blur；不透明覆盖规则
+    只在 prefers-reduced-transparency/@media 里，普通设置不生效。
+    修法：两个主题的变量值直接去掉 alpha（背景全不透明后 blur 无视觉效果）。
+    .ui-dialog-surface 等弹窗同用此变量，一并变实。幂等：已打则跳过。"""
+    css, data = find_css()
+    subs = [
+        ("--material-popover:#161b23e6", "--material-popover:#161b23"),
+        ("--material-popover:#ffffffdb", "--material-popover:#ffffff"),
+    ]
+    changed = False
+    for old, new in subs:
+        n = data.count(old)
+        if n == 1:
+            data = data.replace(old, new)
+            changed = True
+        elif n == 0 and re.search(re.escape(new) + r"(?![0-9a-fA-F])", data):
+            pass  # 已是补丁状态
+        else:
+            raise PatchError(f"[P6] CSS 锚点 {old} 命中 {n} 次（主题色板可能已改）")
+    if changed:
+        tmp = css + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(data)
+        os.replace(tmp, css)
+        print(f"✅ [P6] 弹窗不透明已写入 {css}")
+    else:
+        print("ℹ️ [P6] CSS 已是补丁状态")
+    return 0
+
+
 def sub_once(src, pattern, repl, name, pos=None):
     """正则替换，强制恰好命中一次；pos 给定时只在 >=pos 处找"""
     flags = 0
@@ -65,6 +112,8 @@ def sub_once(src, pattern, repl, name, pos=None):
 
 
 def main():
+    # P6 是 CSS 补丁，独立于 JS MARKER 幂等（JS 已打过时也要能补 CSS）
+    patch_css()
     chunk, src = find_chunk()
     if MARKER in src:
         print("已是补丁状态，跳过")
@@ -382,6 +431,47 @@ def main():
             raise PatchError(f"[P5] 宽度锚点 {old_w} 命中 {n_w} 次")
         src = src.replace(old_w, new_w)
 
+    # ---------- P7：输入框下方工具行图标加大（用户反馈太小看不清） ----------
+    # 1) 工具行窗口（输入框下方 marginTop:8 那行）：附件 15→18、更多控件 13→16、
+    #    思考级别选择器图标 11→14（窗口内各尺寸均恰一个，弹窗内 10px 勾选标不动）
+    pat_tb = 'style:{marginTop:8,display:"flex",alignItems:"center",gap:6,minHeight:32}'
+    i_tb = src.find(pat_tb)
+    if i_tb < 0:
+        raise PatchError("[P7] 工具行锚点未找到")
+    win = src[i_tb : i_tb + 6000]
+    for old_i, new_i in [
+        ('svg",{width:"15",height:"15"', 'svg",{width:"18",height:"18"'),
+        ('svg",{width:"13",height:"13"', 'svg",{width:"16",height:"16"'),
+        ('svg",{width:"11",height:"11"', 'svg",{width:"14",height:"14"'),
+    ]:
+        c_i = win.count(old_i)
+        if c_i != 1:
+            raise PatchError(f"[P7] 工具行 {old_i} 命中 {c_i} 次")
+        win = win.replace(old_i, new_i)
+    src = src[:i_tb] + win + src[i_tb + 6000 :]
+    # 2) 三个工具行组件触发图标（组件压缩名会变，用 props 签名锚定）：
+    #    模型选择器 14→17 / 模式切换 14→17 / 工具预设 11→14（只动触发图标，弹窗内不动）
+    for label7, pat7, old7, new7 in [
+        ("模型选择器",
+         rf"function\s?[\w$]*\(\{{isStreaming:{ID},model:{ID},modelNames:{ID},modelList:{ID},onModelChange:{ID}\}}",
+         'svg",{width:"14",height:"14"', 'svg",{width:"17",height:"17"'),
+        ("模式切换",
+         rf"function\s?[\w$]*\(\{{mode:{ID},disabled:{ID},onChange:{ID}\}}",
+         'svg",{width:"14",height:"14"', 'svg",{width:"17",height:"17"'),
+        ("工具预设",
+         rf"function\s?[\w$]*\(\{{isStreaming:{ID},toolPreset:{ID},onToolPresetChange:{ID}\}}",
+         'svg",{width:"11",height:"11"', 'svg",{width:"14",height:"14"'),
+    ]:
+        m7 = list(re.finditer(pat7, src))
+        if len(m7) != 1:
+            raise PatchError(f"[P7] {label7}签名命中 {len(m7)} 次")
+        seg7 = src[m7[0].end() : m7[0].end() + 2500]
+        c7 = seg7.count(old7)
+        if c7 < 1:
+            raise PatchError(f"[P7] {label7}图标锚点未找到")
+        seg7 = seg7.replace(old7, new7, 1)
+        src = src[: m7[0].end()] + seg7 + src[m7[0].end() + 2500 :]
+
     # ---------- P3-3：状态圆点（SessionItem 标题前） ----------
     pat_dot = r'\]\}\),\(0,(' + ID + r')\.jsxs\)\("div",\{className:"flex-1 min-w-0",children:\['
     m_dot = re.search(pat_dot, src)
@@ -407,6 +497,8 @@ def main():
 
     if MARKER not in src or "__piCLst" not in src or "_piS" not in src or "PingFang SC" not in src:
         raise PatchError("自检失败：补丁标记未出现在产物中")
+    if src.count('svg",{width:"18",height:"18",viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:"1.8"') != 1:
+        raise PatchError("自检失败：P7 图标标记异常")
 
     tmp = chunk + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:

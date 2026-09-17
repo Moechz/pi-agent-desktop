@@ -1,8 +1,9 @@
 #!/bin/bash
-# 回滚 Pi Agent Desktop 的全部 UI 补丁（1 会话只留结果v2 / 2 输入框边框 / 3 侧边栏平铺+状态点）
+# 回滚 Pi Agent Desktop 的全部 UI 补丁（1 会话只留结果v2 / 2 输入框边框 / 3 侧边栏平铺+状态点 / 5 字体 / 6 弹窗不透明 / 7 图标）
 set -e
 APP="/Applications/Pi Agent Desktop.app/Contents/Resources/standalone"
 cp "$HOME/.pi-ui-patches/backup/0wz_4dmun1la1.js.orig"  "$APP/.next/static/chunks/0wz_4dmun1la1.js"
+cp "$HOME/.pi-ui-patches/backup/0_d0l-y8ld00j.css.orig" "$APP/.next/static/chunks/0_d0l-y8ld00j.css"
 cp "$HOME/.pi-ui-patches/backup/MessageView.tsx.orig"   "$APP/components/MessageView.tsx"
 cp "$HOME/.pi-ui-patches/backup/MessageList.tsx.orig"    "$APP/components/MessageList.tsx"
 cp "$HOME/.pi-ui-patches/backup/ChatInput.tsx.orig"     "$APP/components/ChatInput.tsx"
