@@ -207,3 +207,18 @@ osascript -l JavaScript -e 'ObjC.import("Foundation");
 `SessionSidebar.tsx`、`session-sidebar/SessionTree.tsx`、`session-sidebar/helpers.ts`
 曾被同步修改以与编译补丁对应（不影响运行）。原始版备份在本项目 `backup/*.orig`。
 新版本适配**不需要**改源码。
+
+## 8. Windows 分发版（windows-build/）
+
+同一套 `apply_patches.py` 直接打在 Windows 官方产物上（跨平台成立的依据）：
+- Windows 与 Mac 官方包是**同一次构建**：关键 chunk `0wz_4dmun1la1.js` md5 完全一致；
+  仅 CSS 文件名不同（Mac `0_d0l-y8ld00j.css` / Win `1o8y9tk-h0e51.css`，内容差 1 字节），
+  `find_css()` 按内容特征定位不受影响。
+- 流水线：官方 Setup.exe --7zz 解包--> app-64.7z --> app 目录 --> `PI_STANDALONE=… python3 apply_patches.py`
+  --> 删 `resources/app-update.yml` 禁自动更新（主进程缺失配置走 logError 静默，已核实 app.asar）
+  --> `cat 7z.sfx + sfx-config + payload.7z` 封自解压安装器（免管理员，per-user 安装）。
+- 工具链无 brew/sudo/docker：`~/tools/7zip/7zz`（ip7z releases）+ `7z.sfx`（官方 7-Zip 安装器解包取得）。
+- 坑：①sfx 配置必须 UTF-8 **无 BOM**，而 PowerShell 脚本必须 UTF-8 **带 BOM**（PS 5.1 中文）；
+  ②ip7z 25.01+ 的 extra 包已不含 sfx 模块，从官方安装器 payload 里拿；
+  ③github 下载需走本机代理 http://127.0.0.1:7890。
+- 详见 `windows-build/README.md`（含隐私扫描结论与重建步骤）。

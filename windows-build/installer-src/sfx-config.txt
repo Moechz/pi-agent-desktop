@@ -1,0 +1,5 @@
+;!@Install@!UTF-8!
+Title="Pi Agent Desktop 定制版安装"
+BeginPrompt="将安装 Pi Agent Desktop 0.8.8（定制界面版）。继续吗？"
+RunProgram="powershell.exe -NoProfile -ExecutionPolicy Bypass -File install.ps1"
+;!@InstallEnd@!

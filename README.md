@@ -86,3 +86,9 @@ pi-agent-UI-change-memo/
 2. 应用自动更新后，看护最迟 1 小时内补上；等不及就手动跑一次 `apply_patches.py`。
 3. 重打后需**重启应用**才生效（看护已自动清渲染缓存；若界面未变按 Cmd+Shift+R）。
 4. 本项目已 git 初始化，适配新版本后记得提交。
+
+## 六、Windows 分发版（分给同事）
+
+`windows-build/` 内有独立流水线：官方 Windows Setup 解包 → 同一 `apply_patches.py` 打
+7 组补丁 → 7z.sfx 封装免管理员安装器（用户数据空白、已禁自动更新）。
+产物、隐私扫描结论、重建步骤见 `windows-build/README.md`；技术细节见 `PATCHES.md` §8。

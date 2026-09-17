@@ -1,0 +1,7 @@
+# 重型产物不入库（可由流水线重建）
+app-custom/
+app-official/
+official-extracted/
+staging/
+payload.7z
+*.exe
