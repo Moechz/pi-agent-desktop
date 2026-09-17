@@ -120,19 +120,21 @@ body 字体栈 `-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hirag
 
 ## 4c. P6 — 菜单弹窗不透明 + P7 — 输入框下方图标加大
 
-**P6 产品语义**：所有菜单/弹窗（右键菜单、模型/模式/预设下拉、对话框等）背景全不透明。
-透明度来自设计默认值：`.material-popover{background:var(--material-popover);
--webkit-backdrop-filter:blur(30px)saturate(160%)}`，变量带 alpha（暗 `#161b23e6`≈90%、
-亮 `#ffffffdb`≈86%）；官方的不透明覆盖规则只在 `@media (prefers-reduced-transparency:reduce)`
-和 `(prefers-contrast:more)` 里，普通设置不生效。
+**P6 产品语义**：所有菜单/弹窗（右键菜单、模型/模式/预设下拉、对话框等）背景**不透明且无色偏，
+明暗模式自适应**：与主题基础背景完全同色（靠 border + shadow-popover 区分层次），
+不随内容透出底下文字。透明度未源是设计默认值：
+`.material-popover{background:var(--material-popover);-webkit-backdrop-filter:blur(30px)saturate(160%)}`，
+变量带 alpha（暗 `#161b23e6`≈90%、亮 `#ffffffdb`≈86%）；官方的不透明覆盖规则只在
+`@media (prefers-reduced-transparency:reduce)` 和 `(prefers-contrast:more)` 里，普通设置不生效。
 
-**P6 变换**（CSS 文件，独立于 JS 幂等，在 main() 里先于 JS MARKER 检查执行）：
+**P6 变换（v2）**（CSS 文件，独立于 JS 幂等，在 main() 里先于 JS MARKER 检查执行）：
 - `find_css()`：`chunks/*.css` 中含 `--material-popover:` 的那个（文件名哈希随构建变）
-- 两处替换（各验证恰一处）：`--material-popover:#161b23e6`→`#161b23`（html.dark）、
-  `--material-popover:#ffffffdb`→`#ffffff`（:root）。背景全不透明后 backdrop blur 无视觉效果，不必动
-- `.ui-dialog-surface` 等同用此变量，一并变实；弹窗内 10px 勾选标等小图标未动（非本次诉求）
-- 幂等判定用 `re.escape(new)+r"(?![0-9a-fA-F])"`（⚠ `#161b23` 是 `#161b23e6` 的子串，
-  简单 `in` 会误判已打）
+- 正则 `--material-popover:#[0-9a-fA-F]+` 恰中两处（:root 与 html.dark）→ 全部归一为
+  `--material-popover:var(--bg)`（暗 #050505 纯中性近黑 / 亮 #f8f9fc 近白，随主题自动切换；
+  CSS 变量引用在使用时解析，定义顺序无关）。归一写法兼容三种历史状态：原版带 alpha、
+  v1 纯色（#161b23/#ffffff）、已是 v2（count==2 即跳过）
+- 背景 var(--bg) 全不透明后 backdrop blur 无视觉效果，不必动
+- `.ui-dialog-surface` 等同用此变量，一并生效；弹窗内 10px 勾选标等小图标未动（非本次诉求）
 
 **P7 变换**（JS，两段）：
 1. 工具行窗口（输入框下方 `style:{marginTop:8,display:"flex",alignItems:"center",gap:6,minHeight:32}`

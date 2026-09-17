@@ -62,35 +62,30 @@ def find_css():
 
 
 def patch_css():
-    """P6：菜单/弹窗不透明。
+    """P6：菜单/弹窗不透明且无色偏。
     透明度来源是设计默认值 --material-popover 带 alpha（暗 #161b23e6≈90%、
     亮 #ffffffdb≈86%）+ .material-popover 的 30px backdrop blur；不透明覆盖规则
     只在 prefers-reduced-transparency/@media 里，普通设置不生效。
-    修法：两个主题的变量值直接去掉 alpha（背景全不透明后 blur 无视觉效果）。
-    .ui-dialog-surface 等弹窗同用此变量，一并变实。幂等：已打则跳过。"""
+    修法（v2）：两主题的变量都改为 var(--bg)——完全跟随主题基础背景
+    （暗 #050505 纯中性近黑 / 亮 #f8f9fc 近白），不透明、无色偏、明暗自适应，
+    弹窗与主背景同色，靠 border/shadow 区分层次。
+    兼容三种历史状态：原版带 alpha、v1 纯色（#161b23/#ffffff）、已是 v2。
+    .ui-dialog-surface 等弹窗同用此变量，一并生效。幂等。"""
     css, data = find_css()
-    subs = [
-        ("--material-popover:#161b23e6", "--material-popover:#161b23"),
-        ("--material-popover:#ffffffdb", "--material-popover:#ffffff"),
-    ]
-    changed = False
-    for old, new in subs:
-        n = data.count(old)
-        if n == 1:
-            data = data.replace(old, new)
-            changed = True
-        elif n == 0 and re.search(re.escape(new) + r"(?![0-9a-fA-F])", data):
-            pass  # 已是补丁状态
-        else:
-            raise PatchError(f"[P6] CSS 锚点 {old} 命中 {n} 次（主题色板可能已改）")
-    if changed:
-        tmp = css + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            f.write(data)
-        os.replace(tmp, css)
-        print(f"✅ [P6] 弹窗不透明已写入 {css}")
-    else:
+    if data.count("--material-popover:var(--bg)") == 2:
         print("ℹ️ [P6] CSS 已是补丁状态")
+        return 0
+    # 任意十六进制色值（原版带 alpha 或 v1 纯色）都归一为 var(--bg)；期望恰两处（:root 与 html.dark）
+    pat_hex = re.compile(r"--material-popover:#[0-9a-fA-F]+")
+    hits = list(pat_hex.finditer(data))
+    if len(hits) != 2:
+        raise PatchError(f"[P6] --material-popover 色值锚点命中 {len(hits)} 次（期望 2）")
+    data = pat_hex.sub("--material-popover:var(--bg)", data)
+    tmp = css + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(data)
+    os.replace(tmp, css)
+    print(f"✅ [P6] 弹窗不透明(var(--bg)) 已写入 {css}")
     return 0
 
 
