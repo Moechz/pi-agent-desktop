@@ -182,7 +182,8 @@ def patch_css_dsh():
     if DSH_MARK in data:
         # 已有旧版块（如 v1 蓝色强调色）→ 就地升级为当前版；已是当前版则跳过
         head, old_tail = data.split(DSH_MARK, 1)
-        if old_tail == rules:
+        if old_tail == rules or old_tail.startswith(rules):
+            # 尾部可能还追加过 P8b 等后续块（startswith 容忍），避免每小时看护误重写
             print("ℹ️ [P8] DSH 主题已是补丁状态")
             return 0
         tmp = css + ".tmp"
@@ -256,6 +257,35 @@ def patch_js_dsh_sizes():
     return 0
 
 
+def patch_dot_solid():
+    """P3-glow：运行状态圆点去光晕 → 实体圆点（用户 2026-09-19 要求）。
+    旧版 P3 注入了 boxShadow 光晕（0 0 9px 2px 绿晕）+ box-shadow 过渡；
+    本函数把已部署文件里的条件 boxShadow 归为恒 none 并简化 transition。
+    独立于 JS MARKER 幂等：无光晕串即跳过（新版 P3 注入直接无光晕，不命中）。
+    ⚠ 必须在 P1-P7 之后/之外执行（针对已注入产物做迁移，不参与锚点链）。"""
+    chunk, src = find_chunk()
+    if "0 0 9px 2px" not in src:
+        print("ℹ️ [P3-glow] 已是无光晕状态")
+        return 0
+    pat = re.compile(
+        r'boxShadow:window\.__piIsRun&&window\.__piIsRun\(' + ID + r'\.id\)'
+        r'\?"0 0 9px 2px rgba\(34,224,107,\.75\)":"none"'
+    )
+    ms = list(pat.finditer(src))
+    if len(ms) != 1:
+        raise PatchError(f"[P3-glow] 光晕锚点命中 {len(ms)} 次（期望 1）")
+    src = pat.sub('boxShadow:"none"', src)
+    src = src.replace(
+        '"background .3s,opacity .3s,box-shadow .3s"', '"background .3s,opacity .3s"'
+    )
+    tmp = chunk + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(src)
+    os.replace(tmp, chunk)
+    print(f"✅ [P3-glow] 圆点光晕已移除 → {chunk}")
+    return 0
+
+
 def sub_once(src, pattern, repl, name, pos=None):
     """正则替换，强制恰好命中一次；pos 给定时只在 >=pos 处找"""
     flags = 0
@@ -278,6 +308,8 @@ def main():
     patch_css()
     patch_css_dsh()
     patch_css_dsh2()
+    # P3-glow 迁移也独立于 MARKER（修已部署产物的光晕；全新产物由新版 P3 直接无光晕）
+    patch_dot_solid()
     chunk, src = find_chunk()
     if MARKER in src:
         print("已是补丁状态，跳过")
@@ -696,8 +728,8 @@ def main():
         "style:{width:8,height:8,borderRadius:9999,flexShrink:0,marginLeft:2,marginRight:8,"
         "background:window.__piIsRun&&window.__piIsRun(" + S + '.id)?"#22e06b":"var(--text-muted)",'
         "opacity:window.__piIsRun&&window.__piIsRun(" + S + '.id)?1:.55,'
-        "boxShadow:window.__piIsRun&&window.__piIsRun(" + S + '.id)?"0 0 9px 2px rgba(34,224,107,.75)":"none",'
-        'transition:"background .3s,opacity .3s,box-shadow .3s"}}),'
+        # v2：去光晕实体圆点（用户 2026-09-19 要求），无 boxShadow；旧文件由 patch_dot_solid 迁移
+        'transition:"background .3s,opacity .3s"}}),'
         '(0,' + m_dot.group(1) + '.jsxs)("div",{className:"flex-1 min-w-0",children:['
     )
     src = src[: m_dot.start()] + dot + src[m_dot.end():]

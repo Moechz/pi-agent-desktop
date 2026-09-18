@@ -82,7 +82,7 @@
    箭头 onClick=`TG`（stopPropagation + `__piCLset` 切换 `__piCLst[G.cwd]`）；chevron path 收起=`M6 9l6 6 6-6`(▼)/展开=`M18 15l-6-6-6 6`(▲)；
    会话列表渲染包裹条件 `__piCLst[G.cwd]?null:tree.map(...)`（已收起的组整组隐藏）。
 4. 空态改判定：`!A&&!B&&0===U.length&&`（过滤后数组）→ `0===y.length&&`（全部会话为空才显示空态）。
-5. 状态圆点：SessionItem 内 `className:"flex-1 min-w-0"` 容器前插 span（8px 圆点；运行=鲜绿 #22e06b + 大光晕 0 0 9px 2px rgba(34,224,107,.75) + title"running"；空闲=var(--text-muted) opacity .55）。
+5. 状态圆点：SessionItem 内 `className:"flex-1 min-w-0"` 容器前插 span（8px 圆点；运行=鲜绿 #22e06b 实心 + title"running"；空闲=var(--text-muted) opacity .55）。**v2（2026-09-19）：去光晕实体圆点**——不再注入 boxShadow（旧版带 0 0 9px 2px 绿晕），transition 去掉 box-shadow 项；已部署旧产物由独立幂等的 `patch_dot_solid()` 迁移（无光晕串即跳过，不参与锚点链）。
    session 变量名从往前最近的 `function K({session:S,isSelected:` 签名捕获。
 6. 自检：除 `__piSM` 外同时校验 `__piCLst` 在产物中。
 7. 以上涉及侧边栏作用域变量名的，全部从组件签名
@@ -119,6 +119,8 @@ body 字体栈 `-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hirag
 5. 自检标记：`PingFang SC`。
 
 ## 4c. P6 — 菜单弹窗不透明 + P7 — 输入框下方图标加大
+
+> P3 状态圆点 v2：实体无光晕，详见 §4 第 5 条与 apply_patches.py `patch_dot_solid()`。
 
 **P6 产品语义**：所有菜单/弹窗（右键菜单、模型/模式/预设下拉、对话框等）背景**不透明且无色偏，
 明暗模式自适应**：与主题基础背景完全同色（靠 border + shadow-popover 区分层次），
