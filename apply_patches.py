@@ -489,6 +489,23 @@ def main():
     if c_snd != 2:
         raise PatchError(f"[P7] 发送按钮图标锚点命中 {c_snd} 次（期望 2）")
     src = src.replace(old_snd, new_snd)
+    # 4) 右组尾部两个小图标（第四轮反馈“图案占位太小”）:
+    #    执行中停止钮方块 10→18（chat.stopAgent，filled rect viewBox 10，全 chunk 唯一
+    #    —— 同尺寸另有 compacting 方块但 rect 坐标不同且无 aria-hidden，不误伤）
+    #    完成提示音喇叭 12→18（chat.*DoneSound，volume-2/volume-x 两态恰 2 处，
+    #    锚 polygon points "11 5…" 喇叭形才能与其它 12px viewBox24 图标区分）
+    old_sq = 'svg",{width:"10",height:"10",viewBox:"0 0 10 10",fill:"none","aria-hidden":"true",children:(0,n.jsx)("rect",{x:"1.5"'
+    new_sq = 'svg",{width:"18",height:"18",viewBox:"0 0 10 10",fill:"none","aria-hidden":"true",children:(0,n.jsx)("rect",{x:"1.5"'
+    c_sq = src.count(old_sq)
+    if c_sq != 1:
+        raise PatchError(f"[P7] 停止钮方块锚点命中 {c_sq} 次（期望 1）")
+    src = src.replace(old_sq, new_sq)
+    old_sp = 'svg",{width:"12",height:"12",viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:"2",strokeLinecap:"round",strokeLinejoin:"round",children:[(0,n.jsx)("polygon",{points:"11 5'
+    new_sp = 'svg",{width:"18",height:"18",viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:"2",strokeLinecap:"round",strokeLinejoin:"round",children:[(0,n.jsx)("polygon",{points:"11 5'
+    c_sp = src.count(old_sp)
+    if c_sp != 2:
+        raise PatchError(f"[P7] 喇叭图标锚点命中 {c_sp} 次（期望 2）")
+    src = src.replace(old_sp, new_sp)
 
     # ---------- P6b：JS 内联半透明菜单背景 → var(--bg)（不走 material-popover 的弹层） ----------
     # flyout 二级弹卡用 var(--bg-elevated)（65%）、危险提示弹卡用 var(--bg-panel)（65%），
@@ -538,6 +555,10 @@ def main():
         raise PatchError("自检失败：P7 更多控件图标标记异常")
     if src.count('svg",{width:"18",height:"18",viewBox:"0 0 14 14"') != 2:
         raise PatchError("自检失败：P7 发送按钮图标标记异常")
+    if src.count('svg",{width:"18",height:"18",viewBox:"0 0 10 10"') != 1:
+        raise PatchError("自检失败：P7 停止钮方块标记异常")
+    if src.count('svg",{width:"18",height:"18",viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:"2",strokeLinecap:"round",strokeLinejoin:"round",children:[(0,n.jsx)("polygon",{points:"11 5') != 2:
+        raise PatchError("自检失败：P7 喇叭图标标记异常")
     if src.count('marginRight:6,background:"var(--bg)"') != 1:
         raise PatchError("自检失败：P6b 标记异常")
 

@@ -165,6 +165,12 @@ hover/border/focus 类半透明色（本来就是设计薄涂）。若用户后�
    （`chat.sendMessage`）与排队追问（`chat.sendRunningAgent`/`queueFollowUp`）两个 38px
    圆钮（`composer-icon-button`）内的箭头，两处全换；viewBox 14 与工具行图标（viewBox 24）
    区分不互撞，替换等长不影响后续坐标
+4. 右组尾部两个小图标（第四轮反馈"图案占位太小"）：执行中停止钮方块 10→18
+   （`chat.stopAgent`，锚含 aria-hidden + rect x:"1.5"，与 compacting 方块区分）；
+   完成提示音喇叭 12→18（`chat.*DoneSound`，volume-2/volume-x 两态恰 2 处，
+   锚 polygon points "11 5…" 喇叭形）
+   ⚠ 坑：**单子元素 svg 编译为 `children:(0,n.jsx)(`（无数组括号），多子元素才是
+   `children:[(0,n.jsx)(`**——停止钮锚点曾因此 0 命中
 
 **P7 坑**：自检标记不能用裸 `width:"18"` 或仅 svg 头（附件与更多控件同为 18x18 viewBox 24
  strokeWidth 1.8），必须延伸到首个子元素（附件 `rect x:"3"` / 更多控件 `line x1:"4"`）验
