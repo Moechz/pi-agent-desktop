@@ -12,6 +12,7 @@ Pi Agent Desktop UI 补丁自动重打器（语义锚点版）
      JS：flyout/危险弹卡内联背景→var(--bg)；独立于 JS 幂等）
   P7 输入框下方图标统一 18px（工具行：附件/模型/模式/预设/更多控件均 18，与左下角附件同尺寸；
      思考级别弹窗图标 11→14；发送按钮：主发送 + 排队追问圆钮内箭头 15→18）
+  P8 全应用 DSH Desktop 风格（字体栈 + 明暗色板 + 正文行高/标题字号；纯 CSS 追加）
 用法：
   python3 apply_patches.py            # 打补丁（幂等，已打过则跳过）
   PI_STANDALONE=/path python3 ...     # 指定 standalone 目录（测试用）
@@ -27,6 +28,11 @@ STANDALONE = os.environ.get(
     "/Applications/Pi Agent Desktop.app/Contents/Resources/standalone",
 )
 MARKER = "__piSM"  # P3 轮询器标记，存在即认为已打补丁
+DSH_MARK = "/*__piDSH*/"  # P8 全局 DSH 主题追加标记
+DSH_FONT = (
+    '-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",'
+    '"Hiragino Sans GB","Microsoft YaHei","Helvetica Neue",Helvetica,Arial,sans-serif'
+)
 ID = r"[A-Za-z_$][A-Za-z0-9_$]*"
 
 
@@ -73,33 +79,109 @@ def patch_css():
     两组独立幂等（部分打过的中间态也能收敛）。官方不透明覆盖规则只在
     prefers-reduced-transparency/@media 里，普通设置不生效，故需打补丁。"""
     css, data = find_css()
+    # P8 追加块也会重定义 --bg-elevated/--bg-panel，P6 只在前段（DSH 标记之前）检测/替换
+    if DSH_MARK in data:
+        head, _tail = data.split(DSH_MARK, 1)
+        tail = DSH_MARK + _tail
+    else:
+        head, tail = data, ""
     changed = False
     # ① popover 族 → var(--bg)（任意历史色值部归一，兼容原版/v1/v2 三态）
-    if data.count("--material-popover:var(--bg)") != 2:
+    if head.count("--material-popover:var(--bg)") != 2:
         pat_hex = re.compile(r"--material-popover:#[0-9a-fA-F]+")
-        if len(pat_hex.findall(data)) != 2:
+        if len(pat_hex.findall(head)) != 2:
             raise PatchError("[P6] --material-popover 色值锚点异常")
-        data = pat_hex.sub("--material-popover:var(--bg)", data)
+        head = pat_hex.sub("--material-popover:var(--bg)", head)
         changed = True
     # ② elevated/panel 去 alpha：8位hex → 6位；已是 6位×2 则跳过
     for var in ("--bg-elevated", "--bg-panel"):
         pat8 = re.compile(re.escape(var) + r":(#[0-9a-fA-F]{6})[0-9a-fA-F]{2}")
-        n8 = len(pat8.findall(data))
+        n8 = len(pat8.findall(head))
         if n8 == 2:
-            data = pat8.sub(lambda mm, v=var: v + ":" + mm.group(1), data)
+            head = pat8.sub(lambda mm, v=var: v + ":" + mm.group(1), head)
             changed = True
         else:
-            n6 = len(re.findall(re.escape(var) + r":#[0-9a-fA-F]{6}(?![0-9a-fA-F])", data))
+            n6 = len(re.findall(re.escape(var) + r":#[0-9a-fA-F]{6}(?![0-9a-fA-F])", head))
             if n6 != 2:
                 raise PatchError(f"[P6] {var} 锚点异常（8位×{n8} / 6位×{n6}）")
     if changed:
         tmp = css + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
-            f.write(data)
+            f.write(head + tail)
         os.replace(tmp, css)
         print(f"✅ [P6] 弹窗/面板不透明已写入 {css}")
     else:
         print("ℹ️ [P6] CSS 已是补丁状态")
+    return 0
+
+
+def patch_css_dsh():
+    """P8：全应用 DSH Desktop 风格（字体栈 + 色彩体系 + 正文排版）。
+    参考值解包自 DSH Desktop.app（@deepseek-ai/dsh-web-frontend + dsh-client-ui-theme）：
+      · 字体栈 -apple-system/BlinkMacSystemFont/Segoe UI/PingFang SC/...（body 同款）
+      · 色板 = DSH neutral-bluish 灰阶 + deepseek 品牌蓝，明暗两套 alias 映射到 Pi 变量
+        （light: bg #fff / label #0f1115 / secondary #61666b / link #4176e6；
+         dark: bg #151517 / label #f9fafb / secondary #cfd3d6 / link #679efe）
+      · 正文 14px 行高 24px（Pi 本就 14px，调 line-height 1.68→1.71）；
+        markdown 标题对齐 DSH 绝对值 h1 21/30 h2 19/28 h3 18/26 h4 14(w600)
+      · 抗锯齿 -webkit-font-smoothing:antialiased
+    实现全部为文件末尾追加（非 @layer 无层级规则天然压过 @layer theme 的
+    --font-sans；同特异性后写胜过原 :root/html.dark），零锚点依赖，官方更新极鲁棒。
+    JS 侧无改动；幂等标记 /*__piDSH*/。"""
+    css, data = find_css()
+    if DSH_MARK in data:
+        print("ℹ️ [P8] DSH 主题已是补丁状态")
+        return 0
+    block = (
+        DSH_MARK
+        + ":root{"
+        # ---- 浅色 = DSH light alias（static neutral-bluish / deepseek 色阶）----
+        + "--bg:#ffffff;--bg-panel:#f5f6f7;--bg-elevated:#ffffff;"
+        + "--bg-hover:#2631480f;--bg-selected:#2631481a;"
+        + "--border:#e1e5ee;--border-subtle:#e9ecf2;"
+        + "--text:#0f1115;--text-strong:#0f1115;--text-muted:#61666b;--text-dim:#adb2b8;"
+        + "--accent:#4176e6;--accent-hover:#3b82f6;--accent-contrast:#ffffff;"
+        + "--user-bg:linear-gradient(135deg,#eaf3ff 0%,#d3e2ff 100%);--user-border:#b7c8fe80;"
+        + "--assistant-bg:#f9fafbcc;--tool-bg:#f5f6f7cc;--bg-subtle:#2631480d;"
+        + "--code-bg:#f9fafb;--code-header-bg:#ebeef2;"
+        + "--success:#22c55e;--success-bg:#22c55e1c;--success-border:#22c55e52;"
+        + "--danger:#ec1313;--danger-bg:#ec13131a;--danger-border:#ec131352;"
+        + "--warning:#f59e0b;--warning-bg:#f59e0b1f;--warning-border:#f59e0b57;"
+        + "--info:#3b82f6;--info-bg:#3b82f61c;--info-border:#3b82f652;"
+        + "--focus-ring:#4176e65c;"
+        + "--font-sans:" + DSH_FONT + ";"
+        + "}"
+        # ---- 深色 = DSH dark alias（挂 html.dark 与 .dark 双选择器兜底）----
+        + "html.dark,.dark{"
+        + "--bg:#151517;--bg-panel:#1b1b1c;--bg-elevated:#2c2c2e;"
+        + "--bg-hover:#ffffff14;--bg-selected:#ffffff24;"
+        + "--border:#ffffff1a;--border-subtle:#ffffff0f;"
+        + "--text:#f9fafb;--text-strong:#ffffff;--text-muted:#cfd3d6;--text-dim:#81858c;"
+        + "--accent:#679efe;--accent-hover:#5686fe;--accent-contrast:#ffffff;"
+        + "--user-bg:linear-gradient(135deg,#26314826 0%,#2631480d 100%);--user-border:#679efe33;"
+        + "--assistant-bg:#232324cc;--tool-bg:#1b1b1ccc;--bg-subtle:#ffffff0d;"
+        + "--code-bg:#1b1b1c;--code-header-bg:#232324;"
+        + "--success:#4ed17e;--success-bg:#4ed17e14;--success-border:#4ed17e42;"
+        + "--danger:#f25a5a;--danger-bg:#f25a5a1a;--danger-border:#f25a5a47;"
+        + "--warning:#f7ad31;--warning-bg:#f7ad311a;--warning-border:#f7ad314d;"
+        + "--info:#60a5fa;--info-bg:#60a5fa14;--info-border:#60a5fa47;"
+        + "--focus-ring:#679efe6b;"
+        + "}"
+        # ---- 字体栈 + 抗锯齿（压过原 html,body 的 var(--font-inter) 规则）----
+        + "html,body{font-family:" + DSH_FONT + "}"
+        + "body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}"
+        # ---- 正文排版对齐 DSH（14px/24px；标题绝对字号）----
+        + ".markdown-body{line-height:1.71}"
+        + ".markdown-body h1{font-size:21px;line-height:30px}"
+        + ".markdown-body h2{font-size:19px;line-height:28px}"
+        + ".markdown-body h3{font-size:18px;line-height:26px}"
+        + ".markdown-body h4{font-size:14px;font-weight:600}"
+    )
+    tmp = css + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(data + block)
+    os.replace(tmp, css)
+    print(f"✅ [P8] DSH 主题已追加到 {css}")
     return 0
 
 
@@ -121,8 +203,9 @@ def sub_once(src, pattern, repl, name, pos=None):
 
 
 def main():
-    # P6 是 CSS 补丁，独立于 JS MARKER 幂等（JS 已打过时也要能补 CSS）
+    # P6/P8 是 CSS 补丁，独立于 JS MARKER 幂等（JS 已打过时也要能补 CSS）
     patch_css()
+    patch_css_dsh()
     chunk, src = find_chunk()
     if MARKER in src:
         print("已是补丁状态，跳过")

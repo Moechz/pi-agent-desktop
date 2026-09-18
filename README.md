@@ -1,6 +1,6 @@
 # pi-agent-UI-change-memo — Pi Agent Desktop 界面定制备忘
 
-对 Pi Agent Desktop（`/Applications/Pi Agent Desktop.app`）所做的 **6 组 UI 定制补丁**的完整档案：
+对 Pi Agent Desktop（`/Applications/Pi Agent Desktop.app`）所做的 **7 组 UI 定制补丁**的完整档案：
 补丁内容、技术原理、自动重打工具、原始文件备份。目的：**应用更新覆盖定制后能快速恢复**。
 
 > 最后验证时间：2026-09-17 · 适配版本：当前安装版（chunk `0wz_4dmun1la1.js` + CSS `0_d0l-y8ld00j.css`）
@@ -17,6 +17,7 @@
 | P5 | 侧边栏菜单字体对齐 DSH | 侧边栏改用 DSH Desktop 同款系统字体栈（PingFang SC 等，中文更清晰）；组头/会话标题/cwd 行 13px、meta/按钮/路径 12px（原 10.5-12px 混杂偏小）；+New 按钮只留绿色 + 号；侧边栏默认宽 347px |
 | P6 | 菜单弹窗不透明无色偏 | 全部菜单/弹窗/弹卡背景不透明：popover 系（右键菜单、下拉、对话框、toast）用 var(--bg) 与主题背景同色；flyout 二级弹卡、危险提示卡同改 var(--bg)；工具面板/模态框表头/权限确认按钮等 65% 半透明表面去 alpha 变实。明暗自适应 |
 | P7 | 输入框下方图标统一 18px | 工具行全部图标（附件、模型选择器、模式切换、工具预设、更多控件）、右下角发送按钮、执行中停止方块、完成提示音喇叭统一 18px（与左下角附件同尺寸）；思考级别弹窗图标 11→14px |
+| P8 | 全应用 DSH 风格（字体+色彩） | 全局换 DSH Desktop 字体栈（PingFang SC 等）+ 抗锯齿；整套色板映射 DSH 设计令牌（明暗两套：浅色白底 #0f1115 正文/深蓝品牌色 #4176e6，深色 #151517 底/#f9fafb 正文/#679efe 品牌）；正文行高 1.68→1.71，markdown 标题对齐 DSH 绝对字号（h1 21/30 h2 19/28 h3 18/26 h4 14）|
 
 ## 二、更新后被覆盖怎么办
 

@@ -179,6 +179,63 @@ count==1；发送图标用 viewBox 14 签名验 count==2。
 **P6 坑**：部分打过 CSS 的中间态（popover 已 var(--bg) 但 elevated 未打）不能早退 return，
 必须逐组独立判断；正则去 alpha 用 `sub(lambda)` 避免反斜杠组引用问题。
 
+## 4d. P8 — 全应用 DSH 风格（字体栈 + 色彩 + 正文排版）
+
+**产品语义**：整个应用的字体与配色对齐 DSH Desktop（解包其 app.asar 内
+`@deepseek-ai/dsh-web-frontend` CSS + `dsh-client-ui-theme` 设计令牌得出参考值）。
+P5 只做了侧边栏字体，本组扩展到全局且首次引入**色彩体系**替换。
+
+**参考体系**（DSH 设计令牌）：
+- 字体栈：`-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB",
+"Microsoft YaHei","Helvetica Neue",Helvetica,Arial,sans-serif`（body 同款 + antialiased）
+- 色板：neutral-bluish 灰阶（00 #fff … 1000 #0f1115）+ deepseek 品牌蓝
+  （400 #679efe / 450 #5686fe / 500 #4176e6）+ 状态色（green-500 #22c55e / amber-500 #f59e0b…）
+- alias 映射：light bg=00、label-primary=1000、secondary=700、tertiary=400、
+  link=deepseek-500、interactive-hover=#2631480f；dark bg=950 #151517、label=50 #f9fafb、
+  secondary=300、tertiary=600、link=deepseek-400、hover=#ffffff14
+- 排版：正文 14px/24px、xs 13px/20px；markdown h1 21/30 h2 19/28 h3 18/26 h4 14(w600)
+
+**变换**（`patch_css_dsh()`，纯 CSS **文件末尾追加**，零锚点依赖，幂等标记 `/*__piDSH*/`）：
+1. 追加 `:root{…}` 浅色整套变量重定义：bg/panel/elevated/hover/selected/border/text×4/
+   accent×3/user 气泡/assistant/tool 气泡/code×2/success/danger/warning/info×3/focus-ring
+   + `--font-sans`（Pi 原值在 `@layer theme` 内，非 layer 规则天然压过）
+2. 追加 `html.dark,.dark{…}` 深色整套（双选择器兜底 class 挂 body 场景；同特异性后写胜）
+3. 追加 `html,body{font-family:DSH栈}`（压过原 `var(--font-inter)` 规则；
+   `--font-inter` 仅这一处引用，不必碰 next/font 哈希类）+ body 抗锯齿
+4. 追加 `.markdown-body{line-height:1.71}` + h1-h4 绝对字号（正文本就 14px 不动）
+
+**字号未动说明**：正文 14px、输入框 14px、侧边栏 13/12px 均已与 DSH 对齐；
+UI chrome 的 fontSize:12 inline（79 处）保留 Pi 节奏，避免大面积布局回归（如需可后续单独做）。
+
+**P8 坑**：P6 的幂等检查（`--bg-elevated/--bg-panel` 6位×2）会被 P8 追加块里的
+同名变量干扰，patch_css() 必须只在 DSH_MARK 之前的前段检测/替换，再拼回尾部。
+
+**色彩映射总表**（Pi 变量 → DSH 值，light / dark）：
+
+| Pi 变量 | light | dark | DSH 来源 |
+|---|---|---|---|
+| --bg | #ffffff | #151517 | bg-base = bluish-00 / 950 |
+| --bg-panel | #f5f6f7 | #1b1b1c | bluish-60 / 900 |
+| --bg-elevated | #ffffff | #2c2c2e | bluish-00 / 850（hovercard bg）|
+| --bg-hover | #2631480f | #ffffff14 | interactive-bg-hover |
+| --bg-selected | #2631481a | #ffffff24 | interactive-bg-active |
+| --border | #e1e5ee | #ffffff1a | bluish-200 / 惯用白 12% |
+| --border-subtle | #e9ecf2 | #ffffff0f | bluish-150 |
+| --text | #0f1115 | #f9fafb | label-primary = bluish-1000 / 50 |
+| --text-strong | #0f1115 | #ffffff | label-primary |
+| --text-muted | #61666b | #cfd3d6 | label-secondary = bluish-700 / 300 |
+| --text-dim | #adb2b8 | #81858c | label-tertiary = bluish-400 / 600 |
+| --accent | #4176e6 | #679efe | link = deepseek-500 / 400 |
+| --accent-hover | #3b82f6 | #5686fe | blue-600 / deepseek-450 |
+| --code-bg | #f9fafb | #1b1b1c | bluish-50 / 900 |
+| --code-header-bg | #ebeef2 | #232324 | bluish-100 / 875 |
+| --success | #22c55e | #4ed17e | green-500 / 400 |
+| --danger | #ec1313 | #f25a5a | error 系 |
+| --warning | #f59e0b | #f7ad31 | amber-500 / 400 |
+| --info | #3b82f6 | #60a5fa | blue-500 / 400 |
+
+（user/assistant/tool 气泡与 focus-ring 同理映射，详见 apply_patches.py `patch_css_dsh`）
+
 ## 5. 验证流程（每次适配后必做）
 
 ```bash
