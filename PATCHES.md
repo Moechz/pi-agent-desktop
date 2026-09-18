@@ -21,9 +21,18 @@
 `apply_patches.py::find_chunk()`：同时含 `t-acc-panel-inner`（折叠面板）、`sidebar.noSessions`
 （i18n 键）、`"/api/sessions"`、`composer-shell`（输入框类名）的那个 `.js`。
 
-## 2. P1 — 会话只留结果（v2）
+## 2. P1 — 会话只留结果（v3，轮次级语义）
 
-**产品语义**：任务执行中（消息 `isStreaming=true`）一切照旧实时显示；完成后：
+**产品语义（v3，2026-09-19）**：隐藏规则不再受会话级 agentRunning 门控，改为**轮次级**：
+- 数组内的 assistant 消息一律按完成态渲染（块级/消息级/列表级规则全部无条件生效）；
+- 实时过程由尾部流式消息的**独立调用点**承担（`o&&s&&(0,n.jsx)(cQ,{message:s,isStreaming:!0,...})`），
+  正在流式输出的当前步骤全程可见；
+- 效果：任何时刻打开任何会话，已完成的轮次（含正在运行的会话里的历史轮）只留最后文字结果。
+
+**v2→v3 背景**：v2 用 `!agentRunning` 门控整个历史，导致①正在运行的会话里
+已完成的轮次思考也不隐藏；②agentRunning 滞留 true 的会话永远全显。
+
+**变换（3 处，均无门控）**：
 - 块级（`c1` 内）：只渲染最后一个 `text` 块，`thinking`/`toolCall` 渲染 null；
 - 消息级（`cQ` 分发处）：assistant 消息若一个 text 块都没有 → 整条 null；
 - 消息列表级（`c7`）：assistant 消息的后一条也是 assistant → 本条是中间叙述 → null；
@@ -47,7 +56,7 @@
    即"本轮内还有更晚的 assistant → 本条是中间叙述 → 隐藏"。
    `AG`=agentRunning（c7 签名 prop，从 map 前 600 字内 `agentRunning:(\w+)` 捕获）做门控：
    执行中全显、完成后才收起。
-   同时给该 cQ 调用补 `isStreaming:AG`（原调用不传 → 恒 undefined）：执行中块级/消息级规则放行，
+   v3：不给该 cQ 调用传 isStreaming（数组内恒收起），见下。
    实时可见全过程；完成后统一收起。（末尾的 streaming 消息本就显式传 `isStreaming:!0`，不受影响。）
 
 **坑**：rf 字符串里 `\"` 会保留反斜杠字面量 → 用单引号 rf'...' 写普通引号。

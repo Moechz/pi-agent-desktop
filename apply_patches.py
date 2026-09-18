@@ -286,6 +286,53 @@ def patch_dot_solid():
     return 0
 
 
+def patch_p1_v3():
+    """P1 v3 迁移：列表级规则去 agentRunning 门控 + cQ 调用去 isStreaming 注入。
+    背景（2026-09-19 用户反馈）：v2 用会话级 agentRunning 门控整个历史，
+    正在运行的会话里此前已完成的轮次思考边也不隐藏；且 agentRunning
+    滞留 true 的会话永远全显。v3 = 轮次级语义：数组内消息一律按完成态
+    渲染（收起），实时过程由尾部流式消息独立调用点（isStreaming:!0）承担。
+    独立于 JS MARKER 幂等：两处 v2 注入特征均不存在即视为已是 v3。"""
+    chunk, src = find_chunk()
+    pat1 = re.compile(
+        r"!(?P<ag>" + ID + r")&&\"assistant\"===(?P<msg>" + ID + r")\.role"
+        r"&&\(function\(\)\{for\(var k2="
+    )
+    ms1 = list(pat1.finditer(src))
+    pat2 = re.compile(
+        # 锚定在扫描 IIFE 尾巴后紧跟的 cQ 调用（避免误伤同形状的 c1 官方调用点）
+        r"return!1\}\)\(\)\?null:\(0,(?P<n>" + ID + r")\.jsx\)\((?P<cq>" + ID + r"),"
+        r"\{message:(?P<msg2>" + ID + r"),isStreaming:(?P<ag2>" + ID + r"),toolResults:"
+    )
+    ms2 = list(pat2.finditer(src))
+    if not ms1 and not ms2:
+        print("ℹ️ [P1v3] 已是轮次级语义")
+        return 0
+    if len(ms1) != 1 or len(ms2) != 1:
+        raise PatchError(f"[P1v3] 锚点异常（门控×{len(ms1)} / isStreaming×{len(ms2)}）")
+    g1, g2 = ms1[0].groupdict(), ms2[0].groupdict()
+    if g1["msg"] != g2["msg2"] or g1["ag"] != g2["ag2"]:
+        raise PatchError("[P1v3] 两处锚点变量不一致，需人工确认")
+    # ① 去 !AG&& 门控
+    src = src[: ms1[0].start()] + f'"assistant"==={g1["msg"]}.role&&(function(){{for(var k2=' + src[ms1[0].end():]
+    # ② 去 cQ 调用的 isStreaming 注入（重新定位，①已改偏移）
+    ms2b = list(pat2.finditer(src))
+    if len(ms2b) != 1:
+        raise PatchError("[P1v3] 去门控后 isStreaming 锚点丢失")
+    m2 = ms2b[0]
+    repl2 = (
+        'return!1})()?null:(0,' + m2.group('n') + '.jsx)(' + m2.group('cq') + ',{message:'
+        + m2.group('msg2') + ',toolResults:'
+    )
+    src = src[: m2.start()] + repl2 + src[m2.end():]
+    tmp = chunk + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(src)
+    os.replace(tmp, chunk)
+    print(f"✅ [P1v3] 轮次级语义已写入 {chunk}")
+    return 0
+
+
 def sub_once(src, pattern, repl, name, pos=None):
     """正则替换，强制恰好命中一次；pos 给定时只在 >=pos 处找"""
     flags = 0
@@ -310,6 +357,8 @@ def main():
     patch_css_dsh2()
     # P3-glow 迁移也独立于 MARKER（修已部署产物的光晕；全新产物由新版 P3 直接无光晕）
     patch_dot_solid()
+    # P1 v3 迁移：轮次级隐藏语义（去 agentRunning 门控）
+    patch_p1_v3()
     chunk, src = find_chunk()
     if MARKER in src:
         print("已是补丁状态，跳过")
@@ -395,20 +444,19 @@ def main():
     AG = m_ag.group("ag")
     # 会话格式为 assistant/toolResult 交替存储，"下一条是 assistant"永不成立；
     # 改为向后扫描：到下一条 user 前若还有 assistant → 本条是中间叙述 → 隐藏（跳过 toolResult）。
-    # 用 !agentRunning 门控：任务执行中全显，完成后才收起。
+    # v3（2026-09-19）：去掉 !agentRunning 门控 —— 轮次级语义：完成的轮次立即收起，
+    # 不再受会话级 agentRunning 影响（修复：正在运行的会话里历史轮次思考边不隐藏）。
+    # 实时过程由尾部流式消息独立渲染（o&&s&&cQ(isStreaming:!0)），不受影响。
     inject = (
-        f"{g4['v']}=!{AG}&&\"assistant\"==={g4['msg']}.role"
+        f"{g4['v']}=\"assistant\"==={g4['msg']}.role"
         f"&&(function(){{for(var k2={g4['idx']}+1;k2<{g4['msgs']}.length;k2++){{"
         f"var r2={g4['msgs']}[k2].role;if(\"user\"===r2)return!1;if(\"assistant\"===r2)return!0}}"
         f"return!1}})()?null:"
     )
     seg = m_ml[0].group(0)
     seg = seg.replace(g4["v"] + "=(0,", inject + "(0,", 1)
-    # cQ 调用补传 isStreaming=agentRunning：执行中块级/消息级规则放行（全过程可见）
-    cqcall = g4["cq"] + ",{message:" + g4["msg"] + ","
-    if seg.count(cqcall) != 1:
-        raise PatchError("[P4] cQ 调用锚点异常")
-    seg = seg.replace(cqcall, cqcall + "isStreaming:" + AG + ",", 1)
+    # v3：不再给 cQ 补传 isStreaming=agentRunning —— 数组内消息一律按完成态渲染（收起）；
+    # 流式中的尾部消息走独立调用点显式传 isStreaming:!0，保持实时可见
     src = src[: m_ml[0].start()] + seg + src[m_ml[0].end():]
 
     # ---------- P3-1：树构建器存档到 window.__piBT ----------
