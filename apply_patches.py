@@ -121,9 +121,11 @@ def patch_css_dsh():
     """P8：全应用 DSH Desktop 风格（字体栈 + 色彩体系 + 正文排版）。
     参考值解包自 DSH Desktop.app（@deepseek-ai/dsh-web-frontend + dsh-client-ui-theme）：
       · 字体栈 -apple-system/BlinkMacSystemFont/Segoe UI/PingFang SC/...（body 同款）
-      · 色板 = DSH neutral-bluish 灰阶 + deepseek 品牌蓝，明暗两套 alias 映射到 Pi 变量
-        （light: bg #fff / label #0f1115 / secondary #61666b / link #4176e6；
-         dark: bg #151517 / label #f9fafb / secondary #cfd3d6 / link #679efe）
+      · 色板 = DSH neutral-bluish 灰阶，明暗两套 alias 映射到 Pi 变量
+        （light: bg #fff / label #0f1115 / secondary #61666b；
+         dark: bg #151517 / label #f9fafb / secondary #cfd3d6）
+      · ⚠ 强调色家族保留 Pi 原橙不变（用户明确要求）：accent/hover/contrast、
+        user 气泡渐变/边框、focus-ring 均为官方原值，仅背景/文字/边框/状态色走 DSH。
       · 正文 14px 行高 24px（Pi 本就 14px，调 line-height 1.68→1.71）；
         markdown 标题对齐 DSH 绝对值 h1 21/30 h2 19/28 h3 18/26 h4 14(w600)
       · 抗锯齿 -webkit-font-smoothing:antialiased
@@ -131,9 +133,6 @@ def patch_css_dsh():
     --font-sans；同特异性后写胜过原 :root/html.dark），零锚点依赖，官方更新极鲁棒。
     JS 侧无改动；幂等标记 /*__piDSH*/。"""
     css, data = find_css()
-    if DSH_MARK in data:
-        print("ℹ️ [P8] DSH 主题已是补丁状态")
-        return 0
     block = (
         DSH_MARK
         + ":root{"
@@ -142,15 +141,15 @@ def patch_css_dsh():
         + "--bg-hover:#2631480f;--bg-selected:#2631481a;"
         + "--border:#e1e5ee;--border-subtle:#e9ecf2;"
         + "--text:#0f1115;--text-strong:#0f1115;--text-muted:#61666b;--text-dim:#adb2b8;"
-        + "--accent:#4176e6;--accent-hover:#3b82f6;--accent-contrast:#ffffff;"
-        + "--user-bg:linear-gradient(135deg,#eaf3ff 0%,#d3e2ff 100%);--user-border:#b7c8fe80;"
+        + "--accent:#ff8f40;--accent-hover:#f27d2f;--accent-contrast:#fff;"
+        + "--user-bg:linear-gradient(135deg,#fff3e3 0%,#ffe9cc 100%);--user-border:#ffd6a880;"
         + "--assistant-bg:#f9fafbcc;--tool-bg:#f5f6f7cc;--bg-subtle:#2631480d;"
         + "--code-bg:#f9fafb;--code-header-bg:#ebeef2;"
         + "--success:#22c55e;--success-bg:#22c55e1c;--success-border:#22c55e52;"
         + "--danger:#ec1313;--danger-bg:#ec13131a;--danger-border:#ec131352;"
         + "--warning:#f59e0b;--warning-bg:#f59e0b1f;--warning-border:#f59e0b57;"
         + "--info:#3b82f6;--info-bg:#3b82f61c;--info-border:#3b82f652;"
-        + "--focus-ring:#4176e65c;"
+        + "--focus-ring:#ff8f405c;"
         + "--font-sans:" + DSH_FONT + ";"
         + "}"
         # ---- 深色 = DSH dark alias（挂 html.dark 与 .dark 双选择器兜底）----
@@ -159,15 +158,15 @@ def patch_css_dsh():
         + "--bg-hover:#ffffff14;--bg-selected:#ffffff24;"
         + "--border:#ffffff1a;--border-subtle:#ffffff0f;"
         + "--text:#f9fafb;--text-strong:#ffffff;--text-muted:#cfd3d6;--text-dim:#81858c;"
-        + "--accent:#679efe;--accent-hover:#5686fe;--accent-contrast:#ffffff;"
-        + "--user-bg:linear-gradient(135deg,#26314826 0%,#2631480d 100%);--user-border:#679efe33;"
+        + "--accent:#ffb454;--accent-hover:#ffd173;--accent-contrast:#1b1307;"
+        + "--user-bg:linear-gradient(135deg,#ffb45426 0%,#ffb4540d 100%);--user-border:#ffb45433;"
         + "--assistant-bg:#232324cc;--tool-bg:#1b1b1ccc;--bg-subtle:#ffffff0d;"
         + "--code-bg:#1b1b1c;--code-header-bg:#232324;"
         + "--success:#4ed17e;--success-bg:#4ed17e14;--success-border:#4ed17e42;"
         + "--danger:#f25a5a;--danger-bg:#f25a5a1a;--danger-border:#f25a5a47;"
         + "--warning:#f7ad31;--warning-bg:#f7ad311a;--warning-border:#f7ad314d;"
         + "--info:#60a5fa;--info-bg:#60a5fa14;--info-border:#60a5fa47;"
-        + "--focus-ring:#679efe6b;"
+        + "--focus-ring:#ffb4546b;"
         + "}"
         # ---- 字体栈 + 抗锯齿（压过原 html,body 的 var(--font-inter) 规则）----
         + "html,body{font-family:" + DSH_FONT + "}"
@@ -179,6 +178,19 @@ def patch_css_dsh():
         + ".markdown-body h3{font-size:18px;line-height:26px}"
         + ".markdown-body h4{font-size:14px;font-weight:600}"
     )
+    rules = block[len(DSH_MARK) :]
+    if DSH_MARK in data:
+        # 已有旧版块（如 v1 蓝色强调色）→ 就地升级为当前版；已是当前版则跳过
+        head, old_tail = data.split(DSH_MARK, 1)
+        if old_tail == rules:
+            print("ℹ️ [P8] DSH 主题已是补丁状态")
+            return 0
+        tmp = css + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(head + block)
+        os.replace(tmp, css)
+        print(f"✅ [P8] DSH 主题块已升级（就地重写尾部）→ {css}")
+        return 0
     tmp = css + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         f.write(data + block)

@@ -241,8 +241,8 @@ UI chrome 的 fontSize:12 inline（79 处）保留 Pi 节奏，避免大面积�
 | --text-strong | #0f1115 | #ffffff | label-primary |
 | --text-muted | #61666b | #cfd3d6 | label-secondary = bluish-700 / 300 |
 | --text-dim | #adb2b8 | #81858c | label-tertiary = bluish-400 / 600 |
-| --accent | #4176e6 | #679efe | link = deepseek-500 / 400 |
-| --accent-hover | #3b82f6 | #5686fe | blue-600 / deepseek-450 |
+| --accent | #ff8f40（Pi 原橙，保留） | #ffb454（Pi 原橙，保留） | ⚠ 用户要求不换 DSH 蓝 |
+| --accent-hover | #f27d2f（原值） | #ffd173（原值） | 同上 |
 | --code-bg | #f9fafb | #1b1b1c | bluish-50 / 900 |
 | --code-header-bg | #ebeef2 | #232324 | bluish-100 / 875 |
 | --success | #22c55e | #4ed17e | green-500 / 400 |
@@ -250,7 +250,12 @@ UI chrome 的 fontSize:12 inline（79 处）保留 Pi 节奏，避免大面积�
 | --warning | #f59e0b | #f7ad31 | amber-500 / 400 |
 | --info | #3b82f6 | #60a5fa | blue-500 / 400 |
 
-（user/assistant/tool 气泡与 focus-ring 同理映射，详见 apply_patches.py `patch_css_dsh`）
+（user/assistant/tool 气泡与 focus-ring 同理映射，详见 apply_patches.py `patch_css_dsh`；
+但 accent 家族与 user 气泡渐变为 Pi 原橙官方值——用户 2026-09-19 明确要求保留）
+
+**P8 升级机制**：已部署旧版块（如 v1 蓝色强调色）时，`patch_css_dsh` 会就地重写
+DSH_MARK 之后的尾部为当前版；旧尾部之后追加的 P8b 块会被丢弃并由
+`patch_css_dsh2` 自动重新追加（自愈闭环）。
 
 ## 5. 验证流程（每次适配后必做）
 
