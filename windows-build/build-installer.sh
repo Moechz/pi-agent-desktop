@@ -20,6 +20,8 @@ echo "[1/5] 组装 staging ..."
 rm -rf staging payload.7z "$OUT"
 mkdir -p staging
 cp -R "$APP" staging/app
+# 清除 macOS 目录元数据（厂商包自带 + 本机 Finder 生成，均无必要）
+find staging -name ".DS_Store" -delete
 
 # PowerShell 脚本需 UTF-8 BOM（Windows PowerShell 5.1 才能正确读中文）
 for f in install.ps1 uninstall.ps1; do

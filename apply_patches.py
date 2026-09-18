@@ -10,8 +10,8 @@ Pi Agent Desktop UI 补丁自动重打器（语义锚点版）
   P5 侧边栏菜单字体对齐 DSH Desktop（系统字体栈 PingFang SC 等；菜单 13px/次级 12px）
   P6 菜单/弹窗不透明（CSS：--material-popover→var(--bg) + --bg-elevated/--bg-panel 去 alpha；
      JS：flyout/危险弹卡内联背景→var(--bg)；独立于 JS 幂等）
-  P7 输入框下方图标加大（工具行：附件/模型/模式/预设/更多控件 +3px；
-     发送按钮：主发送 + 排队追问圆钮内箭头 15→18，对齐左下角附件图标）
+  P7 输入框下方图标统一 18px（工具行：附件/模型/模式/预设/更多控件均 18，与左下角附件同尺寸；
+     思考级别弹窗图标 11→14；发送按钮：主发送 + 排队追问圆钮内箭头 15→18）
 用法：
   python3 apply_patches.py            # 打补丁（幂等，已打过则跳过）
   PI_STANDALONE=/path python3 ...     # 指定 standalone 目录（测试用）
@@ -440,9 +440,9 @@ def main():
             raise PatchError(f"[P5] 宽度锚点 {old_w} 命中 {n_w} 次")
         src = src.replace(old_w, new_w)
 
-    # ---------- P7：输入框下方工具行图标加大（用户反馈太小看不清） ----------
-    # 1) 工具行窗口（输入框下方 marginTop:8 那行）：附件 15→18、更多控件 13→16、
-    #    思考级别选择器图标 11→14（窗口内各尺寸均恰一个，弹窗内 10px 勾选标不动）
+    # ---------- P7：输入框下方图标统一 18px（用户两轮反馈：右下角三个仍太小） ----------
+    # 1) 工具行窗口（输入框下方 marginTop:8 那行）：附件 15→18、更多控件 13→18、
+    #    思考级别选择器图标 11→14（弹窗内不常见，保持适度；弹窗内 10px 勾选标不动）
     pat_tb = 'style:{marginTop:8,display:"flex",alignItems:"center",gap:6,minHeight:32}'
     i_tb = src.find(pat_tb)
     if i_tb < 0:
@@ -450,7 +450,7 @@ def main():
     win = src[i_tb : i_tb + 6000]
     for old_i, new_i in [
         ('svg",{width:"15",height:"15"', 'svg",{width:"18",height:"18"'),
-        ('svg",{width:"13",height:"13"', 'svg",{width:"16",height:"16"'),
+        ('svg",{width:"13",height:"13"', 'svg",{width:"18",height:"18"'),
         ('svg",{width:"11",height:"11"', 'svg",{width:"14",height:"14"'),
     ]:
         c_i = win.count(old_i)
@@ -458,18 +458,18 @@ def main():
             raise PatchError(f"[P7] 工具行 {old_i} 命中 {c_i} 次")
         win = win.replace(old_i, new_i)
     src = src[:i_tb] + win + src[i_tb + 6000 :]
-    # 2) 三个工具行组件触发图标（组件压缩名会变，用 props 签名锚定）：
-    #    模型选择器 14→17 / 模式切换 14→17 / 工具预设 11→14（只动触发图标，弹窗内不动）
+    # 2) 三个工具行组件触发图标统一 18px（压缩名 dt/ds/da 会变，锚 props 签名）：
+    #    模型选择器 14→18 / 模式切换 14→18 / 工具预设 11→18（只动触发图标，弹窗内不动）
     for label7, pat7, old7, new7 in [
         ("模型选择器",
          rf"function\s?[\w$]*\(\{{isStreaming:{ID},model:{ID},modelNames:{ID},modelList:{ID},onModelChange:{ID}\}}",
-         'svg",{width:"14",height:"14"', 'svg",{width:"17",height:"17"'),
+         'svg",{width:"14",height:"14"', 'svg",{width:"18",height:"18"'),
         ("模式切换",
          rf"function\s?[\w$]*\(\{{mode:{ID},disabled:{ID},onChange:{ID}\}}",
-         'svg",{width:"14",height:"14"', 'svg",{width:"17",height:"17"'),
+         'svg",{width:"14",height:"14"', 'svg",{width:"18",height:"18"'),
         ("工具预设",
          rf"function\s?[\w$]*\(\{{isStreaming:{ID},toolPreset:{ID},onToolPresetChange:{ID}\}}",
-         'svg",{width:"11",height:"11"', 'svg",{width:"14",height:"14"'),
+         'svg",{width:"11",height:"11"', 'svg",{width:"18",height:"18"'),
     ]:
         m7 = list(re.finditer(pat7, src))
         if len(m7) != 1:
@@ -531,8 +531,11 @@ def main():
 
     if MARKER not in src or "__piCLst" not in src or "_piS" not in src or "PingFang SC" not in src:
         raise PatchError("自检失败：补丁标记未出现在产物中")
-    if src.count('svg",{width:"18",height:"18",viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:"1.8"') != 1:
-        raise PatchError("自检失败：P7 图标标记异常")
+    # ⚠ 更多控件也是 18x18 viewBox 24 strokeWidth 1.8，附件自检必须延伸到子元素 rect 才唯一
+    if src.count('svg",{width:"18",height:"18",viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:"1.8",strokeLinecap:"round",strokeLinejoin:"round",children:[(0,n.jsx)("rect",{x:"3",y:"3"') != 1:
+        raise PatchError("自检失败：P7 附件图标标记异常")
+    if src.count('svg",{width:"18",height:"18",viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:"1.8",strokeLinecap:"round",strokeLinejoin:"round",children:[(0,n.jsx)("line",{x1:"4",y1:"6"') != 1:
+        raise PatchError("自检失败：P7 更多控件图标标记异常")
     if src.count('svg",{width:"18",height:"18",viewBox:"0 0 14 14"') != 2:
         raise PatchError("自检失败：P7 发送按钮图标标记异常")
     if src.count('marginRight:6,background:"var(--bg)"') != 1:

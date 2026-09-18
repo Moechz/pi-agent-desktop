@@ -1,1 +1,1 @@
-9fd66939762d81c27c843a2220108be8615319a9c494e2640405a749b143338d  Pi-Agent-Desktop-Custom-Setup-0.8.8.exe
+3b428207b4b511ffe4cd8265ecd1267b42d06a64c634db91ac8800a5089f0743  Pi-Agent-Desktop-Custom-Setup-0.8.8.exe
