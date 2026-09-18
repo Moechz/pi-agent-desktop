@@ -29,6 +29,8 @@ STANDALONE = os.environ.get(
 )
 MARKER = "__piSM"  # P3 轮询器标记，存在即认为已打补丁
 DSH_MARK = "/*__piDSH*/"  # P8 全局 DSH 主题追加标记
+DSH2_MARK = "/*__piDSH2*/"  # P8b 字号阶梯追加标记
+FS_MARK = "/*__piFS*/"  # P8c JS 字号扫掠一次性标记（防 11→12 后被二次升 13）
 DSH_FONT = (
     '-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",'
     '"Hiragino Sans GB","Microsoft YaHei","Helvetica Neue",Helvetica,Arial,sans-serif'
@@ -185,6 +187,63 @@ def patch_css_dsh():
     return 0
 
 
+def patch_css_dsh2():
+    """P8b：字号阶梯对齐 DSH（修复设置菜单/弹窗观感不变问题）。
+    根因：Pi 全局无 layer 规则 `button,input,textarea,select{font:inherit}`（紧跟
+    html,body 之后）压过 @layer utilities 的 text-[Npx]，导致所有表单控件字号
+    恒等于 body 14px（Pi 原生行为，非 P8 引入）；而设置弹窗正文多为 div/span 的
+    text-[12px]/text-[11px]（12/11px 原样渲染），未达 DSH 次级文字节奏。
+    追加无 layer 规则（后写胜 + 无层压层）：
+      · button 13px（DSH 菜单项 xs-13/20；input/textarea/select 仍 inherit=14 对齐 DSH 输入 14）
+      · .text-[12px] → 13px（DSH 次级）
+      · .text-[11px] → 12px（DSH 说明文字）
+    幂等标记 /*__piDSH2*/，与 P8 块独立（已部署过 P8 的文件也能补加）。"""
+    css, data = find_css()
+    if DSH2_MARK in data:
+        print("ℹ️ [P8b] 字号阶梯已是补丁状态")
+        return 0
+    block = (
+        DSH2_MARK
+        + "button{font-size:13px}"
+        + ".text-\\[12px\\]{font-size:13px}"
+        + ".text-\\[11px\\]{font-size:12px}"
+    )
+    tmp = css + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(data + block)
+    os.replace(tmp, css)
+    print(f"✅ [P8b] 字号阶梯已追加到 {css}")
+    return 0
+
+
+def patch_js_dsh_sizes():
+    """P8c：JS inline 字号阶梯对齐（fontSize:12→13、11→12；≤10 的徽标不动）。
+    与 P8b 的 CSS 类选择器阶梯保持一致，覆盖消息 meta/时间戳/提示文字等 inline 样式。
+    ⚠ 幂等必须用一次性标记：扫掠后文件里仍存在 12（由原 11 升来），
+    若按"0 命中即已打"判断会把它们再升一级（11→12→13 连升）。
+    标记 /*__piFS*/ 追加在 chunk 末尾（独立注释，语法安全）。
+    ⚠ 必须在 P1-P7 之后执行：P5 锚点引用原始 fontSize 值（11/12），先扫会破坏锚点。"""
+    chunk, src = find_chunk()
+    if FS_MARK in src:
+        print("ℹ️ [P8c] JS 字号阶梯已是补丁状态")
+        return 0
+    n12 = src.count("fontSize:12,") + src.count("fontSize:12}")
+    n11 = src.count("fontSize:11,") + src.count("fontSize:11}")
+    if n12 == 0 and n11 == 0:
+        print("ℹ️ [P8c] 无可扫掠字号（可能官方已改）")
+        return 0
+    # 顺序关键：先 12→13，后 11→12（同一次调用内不会再回头升 12）
+    src = src.replace("fontSize:12,", "fontSize:13,").replace("fontSize:12}", "fontSize:13}")
+    src = src.replace("fontSize:11,", "fontSize:12,").replace("fontSize:11}", "fontSize:12}")
+    src = src + "\n" + FS_MARK + "\n"
+    tmp = chunk + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(src)
+    os.replace(tmp, chunk)
+    print(f"✅ [P8c] JS 字号扫掠已写入 {chunk}（12→13：{n12} 处，11→12：{n11} 处）")
+    return 0
+
+
 def sub_once(src, pattern, repl, name, pos=None):
     """正则替换，强制恰好命中一次；pos 给定时只在 >=pos 处找"""
     flags = 0
@@ -203,12 +262,14 @@ def sub_once(src, pattern, repl, name, pos=None):
 
 
 def main():
-    # P6/P8 是 CSS 补丁，独立于 JS MARKER 幂等（JS 已打过时也要能补 CSS）
+    # P6/P8/P8b 是 CSS 补丁，独立于 JS MARKER 幂等（JS 已打过时也要能补 CSS）
     patch_css()
     patch_css_dsh()
+    patch_css_dsh2()
     chunk, src = find_chunk()
     if MARKER in src:
         print("已是补丁状态，跳过")
+        patch_js_dsh_sizes()  # P8c 独立幂等，已打 P1-P7 的文件也能补
         return 0
     orig = src
 
@@ -651,6 +712,7 @@ def main():
     os.replace(tmp, chunk)
     print(f"✅ 补丁已写入 {chunk}")
     print(f"   大小 {len(orig)} -> {len(src)}")
+    patch_js_dsh_sizes()  # P8c：在 P1-P7 之后扫（P5 锚点依赖原始字号值）
     return 0
 
 

@@ -207,6 +207,22 @@ P5 只做了侧边栏字体，本组扩展到全局且首次引入**色彩体系
 **字号未动说明**：正文 14px、输入框 14px、侧边栏 13/12px 均已与 DSH 对齐；
 UI chrome 的 fontSize:12 inline（79 处）保留 Pi 节奏，避免大面积布局回归（如需可后续单独做）。
 
+**字号阶梯（P8b/P8c，二轮补丁，修复“设置菜单字体没变”反馈）**：
+- 根因①：Pi 全局有一条**无 layer** 的 `button,input,textarea,select{font:inherit}`
+  （紧跟 html,body 规则之后，非 @layer base 那份 preflight），无层规则压过一切
+  @layer，导致所有表单控件的 Tailwind `text-[Npx]` 字号类全部失效，按钮字号
+  恒等于 body 14px（Pi 原生行为，与 P8 无关）。
+- 根因②：中文字形在原版（Inter 无 CJK→回退 PingFang）与 P8 后（DSH 栈）
+  本就相同，所以中文菜单字体“看不出变化”是预期现象；真正能感知的是字号阶梯。
+- P8b（CSS 追加，标记 /*__piDSH2*/）：`button{font-size:13px}`（DSH 菜单项
+  xs-13；input/textarea/select 仍 inherit=14 对齐 DSH 输入 14）+
+  `.text-[12px]→13px`、`.text-[11px]→12px`（无层后写胜，压过 utilities）。
+- P8c（JS 扫掠，一次性标记 /*__piFS*/ 追加在 chunk 末尾注释）：inline
+  `fontSize:12→13`（79 处）、`11→12`（52 处），≤10 的徽标不动。
+  ⚠ 幂等必须用标记：扫掠后文件里仍有 12（原 11 升来），“0 命中即已打”会连升两级；
+  ⚠ 必须在 P1-P7 之后执行（P5 锚点引用原始 fontSize 11/12 值）。
+- 已知限制：原生 <select> 展开后的下拉列表由 macOS 系统渲染，字体不受页面 CSS 控制。
+
 **P8 坑**：P6 的幂等检查（`--bg-elevated/--bg-panel` 6位×2）会被 P8 追加块里的
 同名变量干扰，patch_css() 必须只在 DSH_MARK 之前的前段检测/替换，再拼回尾部。
 
