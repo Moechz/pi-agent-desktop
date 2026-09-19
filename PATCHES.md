@@ -102,6 +102,30 @@ models.json 被丢弃** → 所有自定义供应商（zhipu）从运行时消�
 第三组须 `(\)\}\)` 而非 `\}\)`（少一层永不命中）；②raw 字符串内正则必须
 单反斜杠（双反斜杠 = 匹配字面反斜杠，静默不命中）。
 
+## 2d. P12 — 输入框下方显示当前模型名
+
+原 ModelSelector 触发按钮只有 32px 芯片图标，模型名只在悬停 title。改为图标+模型名
+（maxWidth:180 溢出省略），按钮自适应宽度。`patch_model_name_button()`：
+children 单元素→数组（`(0,n.jsxs)("svg"` 前插 `[`，svg 闭后加 `,span]`），变量名从
+`title:VAR` 动态提取。锚点坑：芯片 svg 图形全文件复用 3 处，须用尾锚
+`x2:"4",y2:"14"})]})})`（唯一）+ 后随 `visualViewport` 组合定位；svg 用 rfind 从尾锚
+回溯。幂等标记 = span 完整样式串（TabBar 也有裸 maxWidth:180，勿用）。
+
+## 2e. P13 — 模型请求失败显示错误条（治「输入没反应」）
+
+**背景（2026-09-19 实锤）**：模型调用失败（deepseek 402 余额不足 / zhipu 500）写入带
+errorMessage 的空 assistant 消息；P1「只留结果」把无文本完成消息全部隐藏 → **错误被
+吞，表现为"毫无反应"**。修复：P1 隐藏规则命中且 `message.errorMessage` 存在时渲染
+红色错误条（内联 style + `--danger/-bg/-border` CSS 变量）。
+
+`patch_error_banner()` 锚点 = P1-msg 注入的规则
+`(!IS&&!(MSG.content??[]).some(b=>"text"===b.type)?null:`（⚠ `??[])` 后有闭合括号
+再 `.some`；⚠ banner 以 `?(` 开头——替换区 `?null:` 的问号在内）。**调用顺序必须在
+P1-msg 之后**：已部署路径在 MARKER 跳过分支内、fresh 路径在写回后调用。
+
+**E2E**：切 DeepSeek V4 Flash → 发消息 → 红条「⚠ 模型请求失败：402 Insufficient
+Balance」即现；切回 GLM 恢复。用户原症状（切 deepseek 无反应）完全复现并转为可见错误。
+
 ## 3. P2 — 输入框边框
 
 未聚焦态样式串 `"color-mix(in srgb, var(--border) 70%, transparent)"`（全 chunk 唯一）
