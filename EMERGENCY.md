@@ -112,7 +112,18 @@ bash ~/.pi-ui-patches/user-data-backup.sh --restore ~/.pi-ui-patches/userdata/us
 
 ### 症状 E：应用自动升级了（版本号 ≠ 0.8.8）
 
-更新会替换整个 Resources 目录 → 补丁全丢、锚点可能失配。流程：
+更新会替换整个 Resources 目录 → 补丁全丢、锚点可能失配。
+**首选：一条命令预检**（挂新 DMG→沙盒试打→逐组报告，不碰真 App）：
+
+```bash
+# 新 DMG 从 github.com/Chasen-Liao/pi-agent-desktop Releases 下载
+# （本机直连 443 不通：浏览器下，或 curl -x http://127.0.0.1:7890 -L -o）
+bash ~/.pi-ui-patches/precheck-update.sh ~/Downloads/Pi-Agent-Desktop-<新版本>-mac-universal.dmg --adopt
+# ✅ 全部命中 → 放心更新 App，看护最迟 1 小时自动重打（或手动 patch-on.sh）
+# ❌ [Px] 失配 → 按项目 PATCHES.md §6 适配；沙盒留在 /tmp/pi-precheck 可直接复现
+```
+
+手动等价流程（precheck 内部就是这些，供理解/排查）：
 
 ```bash
 # 1) 拿到新版官方 DMG（github.com/Chasen-Liao/pi-agent-desktop 的 releases；
