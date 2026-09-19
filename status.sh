@@ -111,5 +111,15 @@ if [ -n "$NODE" ]; then
     [ $badjs -eq 0 ] && echo "语法       : ✅ 全部 chunk 通过 node --check"
 fi
 
+# 9. 用户数据备份（会话/记忆/模型配置；补丁 bug 写坏数据时的兜底）
+n=$(ls -1 "$RT/userdata/"userdata-*.tar.gz 2>/dev/null | wc -l | tr -d ' ')
+if [ "$n" -gt 0 ]; then
+    newest="$(ls -1t "$RT/userdata/"userdata-*.tar.gz | head -1)"
+    age=$(( ($(date +%s) - $(stat -f %m "$newest")) / 3600 ))
+    echo "用户数据   : $n 份，最新 $age 小时前（看护每日自动 + patch-on 前自动）"
+else
+    echo "用户数据   : ✗ 无备份 —— bash $RT/user-data-backup.sh"
+fi
+
 echo
-echo "速查：回滚 bash $RT/revert.sh ｜ 恢复定制 bash $RT/patch-on.sh ｜ 体检 bash $RT/status.sh"
+echo "速查：回滚 bash $RT/revert.sh ｜ 恢复定制 bash $RT/patch-on.sh ｜ 体检 bash $RT/status.sh ｜ 数据恢复 bash $RT/user-data-backup.sh --restore <文件>"

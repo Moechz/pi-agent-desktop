@@ -18,6 +18,9 @@ fi
 # 应用未安装或正在更新中 → 跳过
 [ -d "$APP_STANDALONE/.next/static/chunks" ] || exit 0
 
+# 用户数据备份（每天最多一次，--auto 自带 20h 节流；数据被补丁 bug 写坏时兜底）
+bash "$DIR/user-data-backup.sh" --auto 2>/dev/null &
+
 # 补丁标记还在 → 快检语法后返回
 if grep -qs "__piSM" "$APP_STANDALONE"/.next/static/chunks/*.js 2>/dev/null; then
   NODE=""

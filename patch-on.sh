@@ -5,6 +5,10 @@
 set -u
 RT="${PI_UI_HOME:-$HOME/.pi-ui-patches}"
 CACHE="$HOME/Library/Application Support/@chasen-liao/pi-agent-desktop"
+
+# 重打补丁前先备份用户数据（补丁 bug 可能写坏 models.json/会话等，先例 P11/P17）
+bash "$RT/user-data-backup.sh" 2>/dev/null || echo "⚠️ 用户数据备份失败（继续，但建议手动跑一次）"
+
 rm -f "$RT/FROZEN" && echo "✅ 看护已恢复自动模式"
 if out=$(python3 "$RT/apply_patches.py" 2>&1); then
     echo "✅ $out"

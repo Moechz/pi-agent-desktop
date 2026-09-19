@@ -68,6 +68,11 @@ bash    ~/.pi-ui-patches/patch-on.sh
 # 备份采集（应用升级到新版本后跑一次）
 bash    ~/.pi-ui-patches/backup-app.sh --from-dmg ~/Downloads/Pi-Agent-Desktop-<版本>-mac-universal.dmg
 bash    ~/.pi-ui-patches/backup-app.sh --snapshot     # 改补丁前拍快照（保留最近 10 份）
+
+# 用户数据备份（会话/记忆/模型配置；看护每日自动，也可手动）
+bash    ~/.pi-ui-patches/user-data-backup.sh            # 立即备份
+bash    ~/.pi-ui-patches/user-data-backup.sh --list     # 列出
+bash    ~/.pi-ui-patches/user-data-backup.sh --restore <文件>  # 恢复（先 Cmd+Q）
 ```
 
 ### 白屏 / 前端加载不出来时（Terminal.app 救援，不依赖 App 界面）
@@ -107,7 +112,8 @@ pi-agent-UI-change-memo/
 ├── backup-app.sh        # 备份采集器：--from-dmg 固化真原版+MANIFEST；--snapshot 拍快照
 ├── status.sh            # 体检报告（补丁/备份可信度/语法/看护/快照）
 ├── patch-off.sh         # 冻结看护（FROZEN 哨兵）；--revert = 冻结+回滚
-├── patch-on.sh          # 解冻 + 立即重打补丁 + 清缓存
+├── patch-on.sh          # 解冻 + 备份用户数据 + 立即重打补丁 + 清缓存
+├── user-data-backup.sh  # 用户数据备份（会话/记忆/模型配置；--list/--restore/--auto）
 ├── backup/              # 项目侧镜像（git 管历史）：*.orig + pristine-<版本>/（DMG 提取的真原版）
 │   ├── 0wz_4dmun1la1.js.orig        # 编译 chunk 原始版（回滚目标）
 │   ├── 0_d0l-y8ld00j.css.orig       # 主题 CSS 原始版（P6 回滚目标）
@@ -142,6 +148,9 @@ pi-agent-UI-change-memo/
 2. 应用自动更新后，看护最迟 1 小时内补上；等不及就手动跑一次 `apply_patches.py`。
 3. 重打后需**重启应用**才生效（看护已自动清渲染缓存；若界面未变按 Cmd+Shift+R）。
 4. 本项目已 git 初始化，适配新版本后记得提交。
+5. **用户数据另有一套独立备份**（`user-data-backup.sh`）：会话历史/记忆/models.json 等，
+   看护每天自动备一次、patch-on 前必备。App 文件回滚（revert.sh）救不回被补丁 bug
+   写坏的数据（P11 models.json 事故先例），那要靠 `user-data-backup.sh --restore`。
 
 ## 六、Windows 分发版（分给同事）
 
