@@ -48,6 +48,47 @@ class PatchError(Exception):
     pass
 
 
+def jsx_expr_end(text, start):
+    """切出从 start 开始的整段 JS 表达式（形如 `(0,ns.jsx)("div",{…})`）。
+    做括号配对扫描（跳过普通/模板字符串）；回到 0 层后，仅当下一个非空字符是
+    `(` `[` `.` 时继续（链式调用/成员访问），否则视为表达式结束。
+    ⚠ 不能简单地“0 层即结束”——`(0,ns.jsxs)` 这个前缀括号会先闭合。"""
+    pairs = {")": "(", "]": "[", "}": "{"}
+    stack = []
+    i, n = start, len(text)
+    while i < n:
+        c = text[i]
+        if c in "\"'":
+            q = c
+            i += 1
+            while i < n and text[i] != q:
+                if text[i] == "\\":
+                    i += 1
+                i += 1
+        elif c == "`":
+            i += 1
+            while i < n and text[i] != "`":
+                if text[i] == "\\":
+                    i += 1
+                i += 1
+        elif c in "([{":
+            stack.append(c)
+        elif c in ")]}":
+            if not stack or stack[-1] != pairs[c]:
+                raise PatchError(f"jsx_expr_end 括号不匹配 @{i}")
+            stack.pop()
+            if not stack:
+                j = i + 1
+                while j < n and text[j] in " \t\n":
+                    j += 1
+                if j < n and text[j] in "([.":
+                    i = j - 1  # 同一表达式的延续（下轮从 ( / [ 开始）
+                else:
+                    return i + 1
+        i += 1
+    raise PatchError("jsx_expr_end 扫描到末尾仍未闭合")
+
+
 def find_chunk():
     """定位包含侧边栏+消息视图的编译 chunk（用稳定字符串特征）"""
     for f in sorted(glob.glob(os.path.join(STANDALONE, ".next/static/chunks/*.js"))):
@@ -1158,12 +1199,14 @@ def main():
     )
     src = src[: m_dot.start()] + dot + src[m_dot.end():]
 
-    # ---------- P16：顶部路径栏 → “+ 新目录”动作按钮（原生目录选择器直通） ----------
-    # 原顶部刍（显示 H(path) 缩写，点击开历史目录下拉）改为：
-    #   左： “+ 新目录” flex-1 按钮 → 直接调 v()（即原下拉里“+ 自定义路径”的功能：
-    #       W() → window.electronAPI.selectDirectory() / POST /api/select-directory）
-    #   右： 小 ▾ 按钮（w-7，展开时旋转）→ 仍开原下拉（历史目录/默认目录/自定义路径）
-    # 文案硬编码中文（未动语言包 chunk，避免扩大补丁面；i18n 化思路见 PATCHES.md）。
+    # ---------- P16：顶部路径栏 → “新建目录”方形图标钮（原生目录选择器直通） ----------
+    # 原顶部刍（显示 H(path) 缩写，点击开历史目录下拉）改为一行方形图标钮：
+    #   [新建目录 w-7] [▾ w-7]   ……（ml-auto）……   [新会话] [刷新]
+    #   （原标题行右侧的“新会话+刷新”按钮组整体下移到同一行，用户 2026-09-21 四调）
+    #   新建目录 → 直接调 v()（即原下拉里“+ 自定义路径”：W()→electronAPI.selectDirectory()）
+    #   ▾ → 仍开原下拉（历史目录/默认目录/自定义路径）
+    # 四钮统一 h-7 w-7（28px 方形，与刷新钮同规格），等高由 h-7 直接保证（无需 stretch）。
+    # 文案硬编码中文（未动语言包 chunk；i18n 化思路见 PATCHES.md）。
     pat_cwdbar = re.compile(
         r'\(0,(?P<ns>[A-Za-z_$][\w$]*)\.jsx\)\("button",\{onClick:\(\)=>m\(e=>!e\),className:`[^`]*`,'
         r'children:\(0,(?P=ns)\.jsx\)\("span",\{className:`[^`]*`,title:e\?\?"",'
@@ -1186,29 +1229,39 @@ def main():
         f'strokeWidth:"1.8",strokeLinecap:"round",strokeLinejoin:"round",children:'
         f'(0,{jx})("polyline",{{points:"2 3.5 5 6.5 8 3.5"}})}})'
     )
+    # ① 先摘出标题行右侧“新会话+刷新”按钮组（含外层 ml-auto flex gap-1）——括号配对精确取整段
+    pat_titlebtns = re.compile(
+        r'\(0,(?P<tns>' + ID + r')\.jsxs\)\("div",\{className:"ml-auto flex gap-1",children:\['
+    )
+    m_tb = pat_titlebtns.search(src)
+    if not m_tb:
+        raise PatchError("[P16] 标题行按钮组锚点未命中")
+    titlebtns = src[m_tb.start():jsx_expr_end(src, m_tb.start())]
     BTN_CLS = (
-        "flex items-center justify-center px-2.5 py-1.5 rounded-control cursor-pointer text-[13px] "
-        "text-text text-center border bg-bg-hover border-border hover:border-focus-ring "
+        "shrink-0 flex items-center justify-center w-7 h-7 p-0 rounded-control cursor-pointer "
+        "text-text border bg-bg-hover border-border hover:border-focus-ring "
         "transition-[background-color,border-color,color] duration-150"
     )
-    # ⚠ 高度对齐用内联 alignSelf:stretch（.self-stretch 类在本构建 CSS 中不存在，
-    #   且 h-7 显式高会压过 stretch）——两钮等高由行高（主钮 py-1.5+13px 内容）决定
     CHEV_CLS = (
-        "shrink-0 flex items-center justify-center w-7 rounded-control border bg-bg-hover border-border "
-        "text-text-muted hover:text-text cursor-pointer "
+        "shrink-0 flex items-center justify-center w-7 h-7 p-0 rounded-control border bg-bg-hover "
+        "border-border text-text-muted hover:text-text cursor-pointer "
         "transition-[background-color,border-color,color] duration-150"
     )
     new_bar = (
         f'(0,{jxs})("div",{{className:"flex items-center gap-1",children:['
-        f'(0,{jxs})("button",{{onClick:function(){{return v()}},title:"新目录（选择本地文件夹作为工作目录）",'
-        f'className:"flex-1 {BTN_CLS}",style:{{opacity:f?0.6:1}},children:{PLUS_SVG}}}),'
+        f'(0,{jx})("button",{{onClick:function(){{return v()}},title:"新建目录（选择本地文件夹作为工作目录）",'
+        f'className:"{BTN_CLS}",style:{{opacity:f?0.6:1}},children:{PLUS_SVG}}}),'
         f'(0,{jx})("button",{{onClick:function(){{return m(function(z){{return !z}})}},title:"历史目录列表",'
-        f'className:"{CHEV_CLS}",style:{{alignSelf:"stretch",transform:g?"rotate(180deg)":"none",transition:"transform .15s"}},'
-        f'children:{CHEV_SVG}'
-        f'}})'
+        f'className:"{CHEV_CLS}",style:{{transform:g?"rotate(180deg)":"none",transition:"transform .15s"}},'
+        f'children:{CHEV_SVG}}}),'
+        f'{titlebtns}'
         f']}})'
     )
     src = src[: m_bar.start()] + new_bar + src[m_bar.end():]
+    # ② 原标题行里那组按钮置 null（它第一处出现必在标题行，new_bar 在更后面）
+    if src.count(titlebtns) != 2:
+        raise PatchError(f"[P16] 按钮组出现 {src.count(titlebtns)} 次（期望 2：标题行+新行）")
+    src = src.replace(titlebtns, "null", 1)
 
     if MARKER not in src or "__piCLst" not in src or "_piS" not in src or "PingFang SC" not in src:
         raise PatchError("自检失败：补丁标记未出现在产物中")
@@ -1222,14 +1275,21 @@ def main():
         raise PatchError("自检失败：P16 新建目录图标（文件夹+加号）标记异常")
     if "H(e,u)" in src:
         raise PatchError("自检失败：P16 旧路径渲染尚未移除")
+    # P16 四调：标题行的“新会话+刷新”按钮组已下移到新行（两处标记各×1，且标题行 children 尾为 null）
+    if src.count("sidebar-new-session-button") != 1 or src.count("sidebar-refresh-button") != 1:
+        raise PatchError("自检失败：P16 新会话/刷新按钮下移异常")
+    if src.count('className:"ml-auto flex gap-1"') != 1:
+        raise PatchError("自检失败：P16 按钮组 ml-auto 容器数量异常")
+    if not re.search(r'sidebar-title-row flex items-center justify-between mb-2\.5",children:\[[^\]]{0,160}?,null\]', src):
+        raise PatchError("自检失败：P16 标题行原按钮组未置空")
     # ⚠ 本补丁引入的 Tailwind 类必须已存在于编译 CSS（任意值类为构建期生成，
     #   不存在即静默失效——P15 行高踩过：改 h-[Npx] 五轮全无效）
     _css_text = open(find_css()[0], encoding="utf-8").read()
-    for _c in ("flex", "items-center", "gap-1", "flex-1", "px-2.5", "py-1.5", "rounded-control",
-               "cursor-pointer", "text-[13px]", "text-text", "text-center", "border", "bg-bg-hover",
+    for _c in ("flex", "items-center", "gap-1", "rounded-control",
+               "cursor-pointer", "text-text", "border", "bg-bg-hover",
                "border-border", "hover:border-focus-ring",
                "transition-[background-color,border-color,color]", "duration-150",
-               "shrink-0", "justify-center", "w-7",
+               "shrink-0", "justify-center", "w-7", "h-7", "p-0",
                "text-text-muted", "hover:text-text"):
         _esc = re.sub(r"([\[\]\.:/\+,%#()])", r"\\\1", _c)
         if "." + _esc not in _css_text:

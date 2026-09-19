@@ -433,6 +433,18 @@ children:e?H(e,u):l&&!c.current?"":d("sidebar.selectProject")})})`
   （⚠ `.self-stretch` 类在本构建 CSS 中不存在；且显式 height 会压过 stretch——
   行高由主钮 `py-1.5`+13px 内容决定）。
 
+**四调（用户 2026-09-21）：方形化 + 两行合一**
+- 「新建目录」去掉 `flex-1`，改为 **`w-7 h-7 p-0` 方形图标钮**（28px，与刷新钮同规格）；
+  `▾` 钮也回到 `w-7 h-7`——四钮统一 28px，等高由 `h-7` 直接保证（不再需 `alignSelf:stretch`）。
+- 原标题行右侧的「新会话 + 刷新」按钮组（外层 `div.ml-auto flex gap-1`）**整体下移**到本行，
+  在 `▾` 之后作为 `ml-auto` 右对齐组：`[新建目录][▾] …… [新会话][刷新]`。
+- 实现要点：新增助手 `jsx_expr_end(text, start)`（括号配对扫描切出整段 JSX 调用）——
+  ⚠ **不能“回归 0 层即结束”**：`(0,ns.jsxs)` 这个前缀括号会先闭合，切出短串（曾导致
+  “按钮组出现 456 次”的误判）；正确规则是 0 层后**下一非空字符为 `(` `[` `.` 时继续**。
+  按钮组原位置置 `null`（标题行 children → `[<logo>,null]`）；移动为**整段抽移**（不动内部）。
+- 自检：`sidebar-new-session-button`×1 + `sidebar-refresh-button`×1 + `ml-auto flex gap-1`×1
+  + 标题行正则 `sidebar-title-row …children:[…,null]`。
+
 **图标化（用户 2026-09-21 三调）**：文字“+ 新目录”太长 → 主钮只放**组合图标**：
 闭合文件夹轮廓（**复用 P3-2 组头同一条 lucide folder path**，`M20 20a2 2 0 0 0 2-2V8…`，
 视觉与侧边栏组头一致）+ 内部加号（`M12 10v6` 竖 / `M9 13h6` 横，即 lucide `folder-plus`）；
