@@ -14,7 +14,8 @@ Pi Agent Desktop UI 补丁自动重打器（语义锚点版）
      思考级别弹窗图标 11→14；发送按钮：主发送 + 排队追问圆钮内箭头 15→18）
   P8 全应用 DSH Desktop 风格（字体栈 + 明暗色板 + 正文行高/标题字号；纯 CSS 追加）
   P15 会话条目紧凑化：删 meta 行（时间+消息数），标题行最右紧凑相对时间 now/Nm/Nh/Nd，
-     圆点只留运行中绿点（空闲不渲染）
+     圆点只留运行中绿点（空闲不渲染），行高 52→40px；组头图标改文件夹（收起=关闭/accent，
+     展开=打开/muted，lucide folder/folder-open）
 用法：
   python3 apply_patches.py            # 打补丁（幂等，已打过则跳过）
   PI_STANDALONE=/path python3 ...     # 指定 standalone 目录（测试用）
@@ -861,13 +862,16 @@ def main():
         "return (0," + G["n"] + ".jsxs)(\"div\",{children:["
         "(0," + G["n"] + ".jsxs)(\"div\",{onClick:function(){return " + GS["ocwd"] + "?.(G.cwd)},"
         "style:{display:\"flex\",alignItems:\"center\",gap:6,padding:\"8px 12px 4px\",cursor:\"pointer\",userSelect:\"none\"},children:["
-        # 切换箭头：收起=▼(向下,点击展开,accent 色) / 展开=▲(向上,点击收起,muted 色)，14px 加粗描边看得清
+        # 组头文件夹图标：收起=关闭文件夹(accent 色，点击展开) / 展开=打开文件夹(muted 色，点击收起)，
+        # 14px strokeWidth 2（lucide folder / folder-open 官方 path），仍可点击切换且 stopPropagation
         "(0," + G["n"] + ".jsx)(\"span\",{onClick:TG,title:__piCLst[G.cwd]?\"expand\":\"collapse\","
         "style:{display:\"inline-flex\",alignItems:\"center\",justifyContent:\"center\",padding:2,marginRight:2,flexShrink:0,"
         "lineHeight:0,cursor:\"pointer\",borderRadius:4,color:__piCLst[G.cwd]?\"var(--accent)\":\"var(--text-muted)\"},"
         "children:(0," + G["n"] + ".jsx)(\"svg\",{width:14,height:14,viewBox:\"0 0 24 24\",fill:\"none\",stroke:\"currentColor\","
-        "strokeWidth:3,strokeLinecap:\"round\",strokeLinejoin:\"round\",style:{display:\"block\"},"
-        "children:(0," + G["n"] + ".jsx)(\"path\",{d:__piCLst[G.cwd]?\"M6 9l6 6 6-6\":\"M18 15l-6-6-6 6\"})})}),"
+        "strokeWidth:2,strokeLinecap:\"round\",strokeLinejoin:\"round\",style:{display:\"block\"},"
+        "children:(0," + G["n"] + ".jsx)(\"path\",{d:__piCLst[G.cwd]"
+        "?\"M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z\""
+        ":\"m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2\"})})}),"
         "(0," + G["n"] + ".jsx)(\"span\",{title:G.cwd,style:{fontSize:13,fontWeight:600,letterSpacing:\"0.03em\","
         "textTransform:\"uppercase\",flex:1,overflow:\"hidden\",textOverflow:\"ellipsis\",whiteSpace:\"nowrap\","
         "color:" + GS["scwd"] + "===G.cwd?\"var(--accent)\":\"var(--text-muted)\"},"
@@ -1101,6 +1105,12 @@ def main():
     if len(ms15m) != 1:
         raise PatchError(f"[P15] meta 行锚点命中 {len(ms15m)} 次")
     src = src[: ms15m[0].start()] + "null" + src[ms15m[0].end():]
+    # ③ 行高压缩：SessionItem 容器固定高 h-[52px]（原为标题+meta 两行设计）→
+    #    40px（meta 已删只剩标题行；全 chunk 唯一，含删除确认态共用容器）
+    old_h = "h-[52px] flex items-center pr-2"
+    if src.count(old_h) != 1:
+        raise PatchError(f"[P15] 行高锚点命中 {src.count(old_h)} 次")
+    src = src.replace(old_h, "h-[40px] flex items-center pr-2")
 
     # ---------- P3-3：状态圆点（SessionItem 标题前） ----------
     pat_dot = r'\]\}\),\(0,(' + ID + r')\.jsxs\)\("div",\{className:"flex-1 min-w-0",children:\['

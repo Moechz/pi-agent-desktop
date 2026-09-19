@@ -369,8 +369,16 @@ DSH_MARK 之后的尾部为当前版；旧尾部之后追加的 P8b 块会被丢
    闭合吃到 jsx 调用尾 `)`。P5 的“meta 行 11→12”条目已删除（锚点被本补丁消费）。
 3. 圆点 v3：`(window.__piIsRun&&window.__piIsRun(S.id))?(绿点 span):null,`
    （无灰点分支、无 transition；与 patch_dot_solid 迁移兼容——旧光晕串不存在时它自跳过）。
+4. 行高压缩：SessionItem 容器固定类 `h-[52px] flex items-center pr-2`（全 chunk 唯一，
+   含删除确认态共用）→ `h-[40px]`——52px 是标题+meta 两行时代的留白，meta 删后只剩
+   一行标题，40px 紧凑（用户 2026-09-21 反馈“行间距太高/光标留行高太高”）。
 
 自检标记：`fontVariantNumeric:"tabular-nums"`×1 + `return mi+"m"`×1。
+
+**组头图标 v2（同日）**：▼/▲ 切换箭头改为文件夹符号（用户要求）——收起=**关闭文件夹**
+（lucide `folder` path，accent 色，点击展开）/ 展开=**打开文件夹**（lucide `folder-open`
+path，muted 色，点击收起）；14px strokeWidth 2，仍 stopPropagation 不触发组头切换项目。
+实现在 P3-2 grouped 渲染的箭头 span 内（改 svg path 字面量，逻辑/颜色方案不变）。
 
 ## 5. 验证流程（每次适配后必做）
 
