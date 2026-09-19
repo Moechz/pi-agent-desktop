@@ -1175,9 +1175,11 @@ def main():
     ns = m_bar.group("ns")
     jx, jxs = ns + ".jsx", ns + ".jsxs"
     PLUS_SVG = (
-        f'(0,{jx})("svg",{{width:"12",height:"12",viewBox:"0 0 12 12",fill:"none",stroke:"currentColor",'
-        f'strokeWidth:"2.2",strokeLinecap:"round",children:[(0,{jx})("line",{{x1:"6",y1:"1",x2:"6",y2:"11"}}),'
-        f'(0,{jx})("line",{{x1:"1",y1:"6",x2:"11",y2:"6"}})]}})'
+        f'(0,{jx})("svg",{{width:"15",height:"15",viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",'
+        f'strokeWidth:"2",strokeLinecap:"round",strokeLinejoin:"round",children:['
+        f'(0,{jx})("path",{{d:"M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"}}),'
+        f'(0,{jx})("path",{{d:"M12 10v6"}}),(0,{jx})("path",{{d:"M9 13h6"}})'
+        f']}})'
     )
     CHEV_SVG = (
         f'(0,{jx})("svg",{{width:"10",height:"10",viewBox:"0 0 10 10",fill:"none",stroke:"currentColor",'
@@ -1198,12 +1200,8 @@ def main():
     )
     new_bar = (
         f'(0,{jxs})("div",{{className:"flex items-center gap-1",children:['
-        f'(0,{jxs})("button",{{onClick:function(){{return v()}},title:"选择本地文件夹作为工作目录",'
-        f'className:"flex-1 {BTN_CLS}",style:{{gap:6}},children:['
-        f'{PLUS_SVG},'
-        f'(0,{jx})("span",{{className:"overflow-hidden text-ellipsis whitespace-nowrap",'
-        f'children:f?"正在打开…":"新目录"}})'
-        f']}}),'
+        f'(0,{jxs})("button",{{onClick:function(){{return v()}},title:"新目录（选择本地文件夹作为工作目录）",'
+        f'className:"flex-1 {BTN_CLS}",style:{{opacity:f?0.6:1}},children:{PLUS_SVG}}}),'
         f'(0,{jx})("button",{{onClick:function(){{return m(function(z){{return !z}})}},title:"历史目录列表",'
         f'className:"{CHEV_CLS}",style:{{alignSelf:"stretch",transform:g?"rotate(180deg)":"none",transition:"transform .15s"}},'
         f'children:{CHEV_SVG}'
@@ -1216,17 +1214,22 @@ def main():
         raise PatchError("自检失败：补丁标记未出现在产物中")
     if src.count("__piRowH flex items-center pr-2") != 1:
         raise PatchError("自检失败：P15 行高自定义类标记异常（CSS 规则由 patch_css 注入）")
-    # P16：顶部目录栏已换成“+ 新目录”（v()）+ ▾ 展开钮，且旧路径渲染已不存在
-    if src.count('children:f?"正在打开…":"新目录"') != 1 or "sidebar.selectProject" in src and "H(e,u)" in src:
-        raise PatchError("自检失败：P16 目录栏改造标记异常")
+    # P16：顶部目录栏已换成“文件夹+加号”图标钮（v()）+ ▾ 展开钮，且旧路径渲染已不存在
+    # ⚠ 组头那处路径是三元字面量 `d:__piCLst[...]?"M20 20a2…"`（前面是 ? 不是 d:"），
+    #   所以只能用不带前缀的宽松串计数（= 1 组头 + 1 本钮 = 2）
+    if (src.count('d:"M12 10v6"') != 1 or src.count('d:"M9 13h6"') != 1
+            or src.count('M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9') != 2):
+        raise PatchError("自检失败：P16 新建目录图标（文件夹+加号）标记异常")
+    if "H(e,u)" in src:
+        raise PatchError("自检失败：P16 旧路径渲染尚未移除")
     # ⚠ 本补丁引入的 Tailwind 类必须已存在于编译 CSS（任意值类为构建期生成，
     #   不存在即静默失效——P15 行高踩过：改 h-[Npx] 五轮全无效）
     _css_text = open(find_css()[0], encoding="utf-8").read()
     for _c in ("flex", "items-center", "gap-1", "flex-1", "px-2.5", "py-1.5", "rounded-control",
                "cursor-pointer", "text-[13px]", "text-text", "text-center", "border", "bg-bg-hover",
                "border-border", "hover:border-focus-ring",
-               "transition-[background-color,border-color,color]", "duration-150", "overflow-hidden",
-               "text-ellipsis", "whitespace-nowrap", "shrink-0", "justify-center", "w-7",
+               "transition-[background-color,border-color,color]", "duration-150",
+               "shrink-0", "justify-center", "w-7",
                "text-text-muted", "hover:text-text"):
         _esc = re.sub(r"([\[\]\.:/\+,%#()])", r"\\\1", _c)
         if "." + _esc not in _css_text:

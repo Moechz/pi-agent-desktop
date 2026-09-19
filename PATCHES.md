@@ -433,12 +433,22 @@ children:e?H(e,u):l&&!c.current?"":d("sidebar.selectProject")})})`
   （⚠ `.self-stretch` 类在本构建 CSS 中不存在；且显式 height 会压过 stretch——
   行高由主钮 `py-1.5`+13px 内容决定）。
 
+**图标化（用户 2026-09-21 三调）**：文字“+ 新目录”太长 → 主钮只放**组合图标**：
+闭合文件夹轮廓（**复用 P3-2 组头同一条 lucide folder path**，`M20 20a2 2 0 0 0 2-2V8…`，
+视觉与侧边栏组头一致）+ 内部加号（`M12 10v6` 竖 / `M9 13h6` 横，即 lucide `folder-plus`）；
+svg 15px viewBox 24 strokeWidth 2；选目录进行中（`f`）用 `opacity:0.6` 提示（无文字位置）。
+自检标记改为三串计数：`d:"M12 10v6"`×1 + `d:"M9 13h6"`×1 + 宽松串 `M20 20a2 2 0 0 0 2-2V8…`×2。
+⚠ 坑：组头那处路径是三元字面量 `d:__piCLst[…]?"M20…"`（前面是 `?` 不是 `d:"`），
+所以带 `d:"` 前缀的串只能命中 1 次，自检必须用不带前缀的宽松串。
+⚠ 次要坑：f-string 拼接时行尾误加 Python 逗号会把隐式字符串拼接变成元组
+（`can only concatenate str (not "tuple")`），JS 逗号必须写在字符串内部。
+
 **⚠ 本补丁引入的 Tailwind 类必须已在编译 CSS 中存在**（任意值类构建期生成，不存在即静默失效——
 P15 行高踩过此坑）；已在自检里加 26 个类的存在性断言（转义规则：`[ ] . : / + , % # ( )` 前加 `\`）。
 **i18n 取舍**：按钮文案硬编码中文（未动语言包 chunk `1sbj4hc6m3k0-.js`/`0kv-dg468563p.js`，
 避免扩大补丁面与 revert/watcher 覆盖面）；若后续要 i18n 化，改 zh `sidebar.customPath` → “新目录”
 并改用 `d("sidebar.customPath")` 即可（en 值已是 Custom path…）。
-**自检标记**：`children:f?"正在打开…":"新目录"`×1 且 `H(e,u)`×0（旧路径渲染已消失）。
+**自检标记**：三串计数（见下“图标化”）；且 `H(e,u)`×0（旧路径渲染已消失）。
 
 ## 5. 验证流程（每次适配后必做）
 
