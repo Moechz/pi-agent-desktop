@@ -24,6 +24,10 @@
 
 ## 二、更新后被覆盖怎么办
 
+> 🚨 **App 白屏/起不来/数据坏了**：别读本文，直接开
+> [`EMERGENCY.md`](EMERGENCY.md)（零上下文 AI 可执行的决策树修复手册，
+> 运行时副本在 `~/.pi-ui-patches/EMERGENCY.md`，GitHub 上也有）。
+
 ### 备份与回滚（先读这个）
 
 所有备份/回滚/体检命令见 **[BACKUP-RESTORE.md](BACKUP-RESTORE.md)**。五条命令：
