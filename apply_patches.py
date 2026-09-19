@@ -327,6 +327,45 @@ def patch_model_save_filter():
     return 0
 
 
+def patch_error_banner():
+    """P13：模型请求失败时显示红色错误条（治「输入没反应」的可见性）。
+    背景（2026-09-19 实锤）：模型调用失败（如 deepseek 402 余额不足、zhipu 500）
+    会写入带 errorMessage 的空 assistant 消息；而 P1「只留结果」规则把无文本的
+    完成消息全部隐藏 → 错误被吞，用户看到的是"毫无反应"。
+    修复：P1 隐藏规则命中时，若 message.errorMessage 存在则渲染错误条而非 null。
+    锚点：P1 编译产物规则 `(!t&&!(MSG.content??[]).some(b=>"text"===b.type)?null:`
+    （注意 `??[])` 后有闭合括号再 `.some`——本补丁第四次栽在括号上）。
+    样式用内联 style + CSS 变量（--danger/-bg/-border 已存在），不依赖 Tailwind JIT。
+    幂等：chunk 含「模型请求失败」即跳过。"""
+    chunk, src = find_chunk()
+    if "模型请求失败" in src:
+        print("ℹ️ [P13] 错误条已存在")
+        return 0
+    pat = re.compile(
+        r'\(!([A-Za-z_$][A-Za-z0-9_$]*)&&!\(([A-Za-z_$][A-Za-z0-9_$]*)\.content\?\?\[\]\)\.some\('
+        r'[A-Za-z_$][A-Za-z0-9_$]*=>"text"===[A-Za-z_$][A-Za-z0-9_$]*\.type\)\?null:'
+    )
+    ms = list(pat.finditer(src))
+    if len(ms) != 1:
+        raise PatchError(f"[P13] P1 规则锚点命中 {len(ms)} 次")
+    m = ms[0]
+    msg = m.group(2)
+    banner = (
+        f'?({msg}.errorMessage?(0,n.jsx)("div",{{style:{{margin:"2px 0 18px",maxWidth:680,'
+        f'borderRadius:"var(--radius-panel)",border:"1px solid var(--danger-border)",'
+        f'background:"var(--danger-bg)",color:"var(--danger)",fontSize:12,padding:"6px 10px",'
+        f'whiteSpace:"pre-wrap",wordBreak:"break-word"}},children:["⚠ 模型请求失败：",{msg}.errorMessage]}}):null):'
+    )
+    start = m.end() - len("?null:")
+    src = src[:start] + banner + src[start + len("?null:"):]
+    tmp = chunk + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(src)
+    os.replace(tmp, chunk)
+    print(f"✅ [P13] 失败消息错误条已写入 {chunk}")
+    return 0
+
+
 def patch_model_name_button():
     """P12：输入框下方模型按钮显示当前模型名。
     原按钮（ModelSelector 触发器）只有 32px 芯片图标，模型名只在 title 提示里。
@@ -547,6 +586,9 @@ def main():
     if MARKER in src:
         print("已是补丁状态，跳过")
         patch_js_dsh_sizes()  # P8c 独立幂等，已打 P1-P7 的文件也能补
+        # P13 须在 P1-msg（MARKER 流程注入的消息级隐藏规则）之后：
+        # 改写其 null 分支为错误条。此处对已部署 chunk 成立。
+        patch_error_banner()
         return 0
     orig = src
 
@@ -989,6 +1031,8 @@ def main():
     print(f"✅ 补丁已写入 {chunk}")
     print(f"   大小 {len(orig)} -> {len(src)}")
     patch_js_dsh_sizes()  # P8c：在 P1-P7 之后扫（P5 锚点依赖原始字号值）
+    # P13 放最后：消息级规则已由 P1-msg 注入，此处改写其 null 分支为错误条
+    patch_error_banner()
     return 0
 
 
