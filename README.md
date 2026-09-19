@@ -24,6 +24,21 @@
 
 ## 二、更新后被覆盖怎么办
 
+### 备份与回滚（先读这个）
+
+所有备份/回滚/体检命令见 **[BACKUP-RESTORE.md](BACKUP-RESTORE.md)**。五条命令：
+
+```bash
+bash ~/.pi-ui-patches/status.sh    # 体检（版本/补丁/备份可信度/看护/快照/语法）
+bash ~/.pi-ui-patches/revert.sh    # 🚨 修坏了 → 一键回滚到干净原版（自动冻结看护+快照+校验）
+bash ~/.pi-ui-patches/patch-on.sh  # 回滚后恢复定制（解冻+重打+清缓存）
+bash ~/.pi-ui-patches/patch-off.sh # 只冻结看护（不让 launchd 自动打补丁）
+bash ~/.pi-ui-patches/backup-app.sh --snapshot  # 改补丁前打一份快照（强烈建议）
+```
+
+保险层级：真原版（从官方 DMG 提取，66 文件）→ `.orig`（8 个，已验证与 DMG 逐字节一致）
+→ 官方 DMG 归档（backup/installer/）→ 补丁面快照（最近 10 份）。
+
 ### 自动（已配置，无需操作）
 `launchd` 看护（`com.user.pi-ui-patch`）在**登录时和每小时**检查补丁标记（`__piSM`）：
 - 补丁在位 → 跳过

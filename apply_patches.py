@@ -1434,19 +1434,19 @@ def main():
         'letterSpacing:"0.06em",color:"var(--text-dim)"},children:"最近目录"}),',
         '(piDirs||[]).length===0?' + JX + '("div",{style:{padding:"6px 8px",fontSize:12,color:"var(--text-dim)"},',
         'children:"暂无记录"}):(piDirs||[]).map(function(d){return ' + JXS + '("button",{type:"button",',
-        'onClick:function(){piSetOpen(!1),piOnCwd(d)},title:d,className:"' + ROW_CLS + '",',
+        'onClick:function(){piSetOpen(!1),piOnCwd(null,d)},title:d,className:"' + ROW_CLS + '",',
         'style:{borderRadius:6,fontSize:12},children:[d===' + CWD + '?' + CHECK_SVG + ':' + JX + '("span",{style:{width:11,flexShrink:0}}),',
         JX + '("span",{style:{flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"},',
         'children:(d||"").split("/").filter(Boolean).slice(-1)[0]||d})]},d)}),',
         JX + '("div",{style:{margin:"4px 0",borderTop:"1px solid var(--border)"}}),',
         JX + '("button",{type:"button",onClick:function(){piSetOpen(!1),fetch("/api/default-cwd",{method:"POST"})',
-        '.then(function(r){return r.json()}).then(function(r){r&&r.cwd&&piOnCwd(r.cwd)}).catch(function(){})},',
+        '.then(function(r){return r.json()}).then(function(r){r&&r.cwd&&piOnCwd(null,r.cwd)}).catch(function(){})},',
         'className:"' + ROW_CLS + '",style:{borderRadius:6,fontSize:12},children:"使用默认目录"}),',
-        JX + '("button",{type:"button",onClick:function(){piSetOpen(!1),' + PICK + '.then(function(p){p&&String(p).trim()&&piOnCwd(String(p).trim())}).catch(function(){})},',
+        JX + '("button",{type:"button",onClick:function(){piSetOpen(!1),' + PICK + '.then(function(p){p&&String(p).trim()&&piOnCwd(null,String(p).trim())}).catch(function(){})},',
         'className:"' + ROW_CLS + '",style:{borderRadius:6,fontSize:12},children:"选择其他目录…"})',
         ']})',
         ']})',
-        ']}),',
+        ']})',
     ])
     src = sub_once(
         src,
@@ -1488,6 +1488,8 @@ def main():
         raise PatchError("自检失败：P17 piIsNew 传递异常")
     if src.count("children:[piIsNew?") != 1:
         raise PatchError("自检失败：P17 目录行 piIsNew 守卫异常")
+    if src.count("piOnCwd(null,") != 3:
+        raise PatchError("自检失败：P17 piOnCwd 调用应为 (null, 目录) 双参 ×3（ej 首参是 sessionId 位，目录在第二参）")
     if (src.count("[piOpen,piSetOpen]=(0,r.useState)(!1)") != 1
             or src.count("V(piRef,piOpen,function(){piSetOpen(!1)})") != 1):
         raise PatchError("自检失败：P17 弹窗状态/点击外部关闭异常")
