@@ -327,6 +327,59 @@ def patch_model_save_filter():
     return 0
 
 
+def patch_orb_expand():
+    """P10b：状态球思考面板默认展开（真正的实时思考显示位置）。
+    关键发现（2026-09-19）：ChatWindow 在把流式消息传给消息列表前，用
+    splitActiveThinking() 把 thinking 块剥离——流式消息根本不渲染思考块！
+    实时思考的唯一显示位置是 AgentThinkingOrb 的思考面板（expanded 默认 false
+    收起，需手动点状态球）。P10（c3 手风琴默认展开）只影响消息内思考块渲染路径
+    （完成态被 P1 隐藏、流式态被剥离），对直播路径无效——本补丁才是正解。
+    锚点：orb 组件（签名 phase:X,thinking:Y=""）内、紧邻 useId() 的 useState，
+    其前一个是 entering 的 useState(!1)。改为 !0：一有思考内容即展开直播
+    （组件已有自动滚动到底逻辑）；点击仍可收起；空 thinking 由 hasThinking 门控。
+    ⚠ 正则坑（连犯三次）：useState)(!1) 的调用括号——组须含 `useState\)(`。
+    独立于 MARKER 幂等：以 orb 区域内是否存在 useState)(!0) 判定。"""
+    chunk, src = find_chunk()
+
+    def orb_state(code):
+        """返回 orb 区域内 expanded 的 useState 值（"!1"/"!0"）或 None"""
+        i = code.find('phase:')
+        while i != -1:
+            m = re.match(r"phase:[A-Za-z_$][A-Za-z0-9_$]*,thinking:[A-Za-z_$][A-Za-z0-9_$]*=\"\"\"?", code[i:i+80])
+            j = code.find("useId", i)
+            if m and j != -1:
+                region = code[i:j+10]
+                mm = re.search(r"useState\)\((\!\d)\),[A-Za-z_$][A-Za-z0-9_$]*=\(0,[A-Za-z_$][A-Za-z0-9_$]*\.useId", region)
+                if mm:
+                    return mm.group(1)
+            i = code.find("phase:", i + 1)
+        return None
+
+    state = orb_state(src)
+    if state == "!0":
+        print("ℹ️ [P10b] 状态球思考面板已默认展开")
+        return 0
+    if state != "!1":
+        raise PatchError(f"[P10b] orb 区域锚点异常（state={state}）")
+    i = src.find('phase:')
+    while i != -1:
+        j = src.find("useId", i)
+        region = src[i:j+10]
+        if re.match(r"phase:[A-Za-z_$][A-Za-z0-9_$]*,thinking:[A-Za-z_$][A-Za-z0-9_$]*=\"\"", src[i:i+80]) and j != -1:
+            mm = re.search(r"(useState\)\()(\!1)(\),)(?=[A-Za-z_$][A-Za-z0-9_$]*=\(0,[A-Za-z_$][A-Za-z0-9_$]*\.useId)", region)
+            if mm:
+                start = i + mm.start(2)
+                src = src[:start] + "!0" + src[start + 2:]
+                tmp = chunk + ".tmp"
+                with open(tmp, "w", encoding="utf-8") as f:
+                    f.write(src)
+                os.replace(tmp, chunk)
+                print(f"✅ [P10b] 状态球思考面板默认展开已写入 {chunk}")
+                return 0
+        i = src.find("phase:", i + 1)
+    raise PatchError("[P10b] orb 内 useState 锚点未命中")
+
+
 def patch_thinking_live():
     """P10：思考面板默认展开（流式时直接看到推理内容）。
     背景（2026-09-19 用户澄清需求）：思考过程要「显示」——原应用思考折叠面板
@@ -437,6 +490,8 @@ def main():
     patch_p1_v3()
     # P10：思考面板默认展开（流式实时可见；fresh/已部署通吃，幂等）
     patch_thinking_live()
+    # P10b：状态球思考面板默认展开（实时思考的真实显示位置，P10 的正解）
+    patch_orb_expand()
     # P11：模型配置保存前过滤空 id 模型（防 models.json 整体失效致供应商消失）
     patch_model_save_filter()
     chunk, src = find_chunk()
