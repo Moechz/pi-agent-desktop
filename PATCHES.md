@@ -126,6 +126,19 @@ P1-msg 之后**：已部署路径在 MARKER 跳过分支内、fresh 路径在写
 **E2E**：切 DeepSeek V4 Flash → 发消息 → 红条「⚠ 模型请求失败：402 Insufficient
 Balance」即现；切回 GLM 恢复。用户原症状（切 deepseek 无反应）完全复现并转为可见错误。
 
+## 2f. P14 — DeepSeek 模型目录仅留 V4.1 Flash
+
+官方 API /models 已只有 `deepseek-flash`（V4.1）与 `deepseek-v4-pro`，v4-flash 下线；
+用户要求菜单只留 V4.1 Flash。models.json 是 upsert 语义（只能追加，不能删内置），
+故改 pi 包 bundle chunk 的 `deepseek_default` 目录：删 v4-pro 条目、v4-flash 改名
+deepseek-flash（保留原字段；cost 为 v4-flash 近似值，仅影响用量估算）。
+
+**新补丁目标**：`node_modules/@earendil-works/*/dist/bundle/chunks/*.js`（按内容
+`var deepseek_default=` 定位，跨文件名/包版本）。**服务端模块常驻内存，需重启应用
+生效**（UI chunk 补丁也是重启生效，一致）。语法校验用 `node --check`（该文件含动态
+`import(`，osascript JSC 法不适用）。幂等：段内无 v4-flash 即跳过；无 node_modules
+的测试目录跳过不报错。
+
 ## 3. P2 — 输入框边框
 
 未聚焦态样式串 `"color-mix(in srgb, var(--border) 70%, transparent)"`（全 chunk 唯一）

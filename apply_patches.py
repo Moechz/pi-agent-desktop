@@ -327,6 +327,59 @@ def patch_model_save_filter():
     return 0
 
 
+def patch_deepseek_catalog():
+    """P14：DeepSeek 模型目录只留 deepseek-flash（V4.1）。
+    背景（2026-09-19）：官方 API /models 只有 deepseek-flash 与 deepseek-v4-pro，
+    v4-flash 已下线；用户要求菜单只留 V4.1 Flash。models.json 是 upsert 语义
+    （只能追加/覆盖，不能删内置模型），故直接改 pi 包 bundle chunk 的
+    deepseek_default 目录：删 v4-pro 条目、v4-flash 改名 deepseek-flash。
+    保留原条目全部字段（cost 为 v4-flash 近似值，仅影响用量估算显示）。
+    新补丁目标：node_modules/@earendil-works/*/dist/bundle/chunks/*.js
+    （按内容定位 `var deepseek_default=`，跨文件名/版本）。
+    服务端模块常驻内存：需重启应用生效。幂等：段内无 v4-flash 即跳过。"""
+    files = sorted(
+        glob.glob(
+            os.path.join(
+                STANDALONE,
+                "node_modules/@earendil-works/*/dist/bundle/chunks/*.js",
+            )
+        )
+    )
+    target = None
+    for f in files:
+        try:
+            data = open(f, encoding="utf-8").read()
+        except OSError:
+            continue
+        if "var deepseek_default=" in data:
+            target = f
+            break
+    if target is None:
+        print("ℹ️ [P14] 未找到 deepseek 目录 chunk（测试目录无 node_modules），跳过")
+        return 0
+    src = open(target, encoding="utf-8").read()
+    a = src.find("var deepseek_default=")
+    b = src.find(";", a)
+    seg = src[a : b + 1]
+    if "deepseek-v4-flash" not in seg and "deepseek-flash" in seg:
+        print("ℹ️ [P14] deepseek 目录已是仅 V4.1 Flash")
+        return 0
+    idx = seg.find(',"deepseek-v4-pro":')
+    if idx < 0 or "deepseek-v4-flash" not in seg:
+        raise PatchError("[P14] deepseek 目录结构异常")
+    new_seg = seg[:idx] + "}};"
+    new_seg = new_seg.replace('"deepseek-v4-flash"', '"deepseek-flash"').replace(
+        "DeepSeek V4 Flash", "DeepSeek V4.1 Flash"
+    )
+    src = src[:a] + new_seg + src[b + 1 :]
+    tmp = target + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(src)
+    os.replace(tmp, target)
+    print(f"✅ [P14] deepseek 目录仅留 V4.1 Flash，已写入 {os.path.basename(target)}")
+    return 0
+
+
 def patch_error_banner():
     """P13：模型请求失败时显示红色错误条（治「输入没反应」的可见性）。
     背景（2026-09-19 实锤）：模型调用失败（如 deepseek 402 余额不足、zhipu 500）
@@ -582,6 +635,8 @@ def main():
     patch_model_name_button()
     # P11：模型配置保存前过滤空 id 模型（防 models.json 整体失效致供应商消失）
     patch_model_save_filter()
+    # P14：deepseek 模型目录仅留 V4.1 Flash（官方已下线 v4-flash；需重启生效）
+    patch_deepseek_catalog()
     chunk, src = find_chunk()
     if MARKER in src:
         print("已是补丁状态，跳过")
