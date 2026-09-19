@@ -1218,18 +1218,31 @@ def main():
     ns = m_bar.group("ns")
     jx, jxs = ns + ".jsx", ns + ".jsxs"
     PLUS_SVG = (
-        f'(0,{jx})("svg",{{width:"15",height:"15",viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",'
+        f'(0,{jx})("svg",{{width:"14",height:"14",viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",'
         f'strokeWidth:"2",strokeLinecap:"round",strokeLinejoin:"round",children:['
         f'(0,{jx})("path",{{d:"M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"}}),'
         f'(0,{jx})("path",{{d:"M12 10v6"}}),(0,{jx})("path",{{d:"M9 13h6"}})'
         f']}})'
     )
     CHEV_SVG = (
-        f'(0,{jx})("svg",{{width:"10",height:"10",viewBox:"0 0 10 10",fill:"none",stroke:"currentColor",'
+        f'(0,{jx})("svg",{{width:"12",height:"12",viewBox:"0 0 10 10",fill:"none",stroke:"currentColor",'
         f'strokeWidth:"1.8",strokeLinecap:"round",strokeLinejoin:"round",children:'
         f'(0,{jx})("polyline",{{points:"2 3.5 5 6.5 8 3.5"}})}})'
     )
-    # ① 先摘出标题行右侧“新会话+刷新”按钮组（含外层 ml-auto flex gap-1）——括号配对精确取整段
+    # ① 分别摘出“新会话”“刷新”两钮（整段抽移、不动内部），以及原标题行按钮组容器（用于置空）
+    pat_newsess = re.compile(r'\(0,(?P<mns>' + ID + r')\.jsxs\)\("button",\{onClick:S,disabled:!e,')
+    m_ns = pat_newsess.search(src)
+    if not m_ns:
+        raise PatchError("[P16] 新会话按钮锚点未命中")
+    newsess = src[m_ns.start():jsx_expr_end(src, m_ns.start())]
+    pat_refresh = re.compile(
+        r'\(0,(?P<mrf>' + ID + r')\.jsx\)\("button",\{onClick:\(\)=>o\(!1\),'
+        r'"aria-label":d\("sidebar\.refreshSessions"\)'
+    )
+    m_rf = pat_refresh.search(src)
+    if not m_rf:
+        raise PatchError("[P16] 刷新按钮锚点未命中")
+    refresh = src[m_rf.start():jsx_expr_end(src, m_rf.start())]
     pat_titlebtns = re.compile(
         r'\(0,(?P<tns>' + ID + r')\.jsxs\)\("div",\{className:"ml-auto flex gap-1",children:\['
     )
@@ -1237,30 +1250,58 @@ def main():
     if not m_tb:
         raise PatchError("[P16] 标题行按钮组锚点未命中")
     titlebtns = src[m_tb.start():jsx_expr_end(src, m_tb.start())]
-    BTN_CLS = (
-        "shrink-0 flex items-center justify-center w-7 h-7 p-0 rounded-control cursor-pointer "
-        "text-text border bg-bg-hover border-border hover:border-focus-ring "
-        "transition-[background-color,border-color,color] duration-150"
+
+    # ② 统一样式：四钮同规格（h-7 w-7 p-0 方形 + chrome-button 底 + hover 高亮 + 150ms）
+    #   UNI        = 无状态钮（新目录/▾）完整类串
+    #   NEWSESS_BASE = 新会话/刷新基础串（颜色与 hover 由各自动态分支给，以保留禁用/完成态）
+    UNI = (
+        "flex h-7 w-7 shrink-0 items-center justify-center p-0 rounded-control border "
+        "bg-chrome-button-bg border-border text-text-muted hover:bg-chrome-button-hover "
+        "hover:text-accent hover:border-focus-ring "
+        "transition-[background-color,border-color,color,transform] duration-150"
     )
-    CHEV_CLS = (
-        "shrink-0 flex items-center justify-center w-7 h-7 p-0 rounded-control border bg-bg-hover "
-        "border-border text-text-muted hover:text-text cursor-pointer "
-        "transition-[background-color,border-color,color] duration-150"
+    NEWSESS_BASE = (
+        "flex h-7 w-7 shrink-0 items-center justify-center p-0 rounded-control border "
+        "bg-chrome-button-bg border-border "
+        "transition-[background-color,border-color,color,transform] duration-150"
     )
+    if newsess.count('style:{background:"var(--success-bg)"') != 1:
+        raise PatchError("[P16] 新会话绿色内联样式锚点异常")
+    newsess = newsess.replace(
+        'style:{background:"var(--success-bg)",borderColor:"var(--success-border)",color:"var(--success)"},', ""
+    )
+    newsess = re.sub(
+        r'className:`sidebar-new-session-button[^`]*`',
+        'className:`sidebar-new-session-button ' + NEWSESS_BASE
+        + ' ${e?"text-text-muted cursor-pointer hover:bg-chrome-button-hover hover:text-accent'
+          ' hover:border-focus-ring":"text-text-dim cursor-not-allowed"}` ',
+        newsess,
+        count=1,
+    )
+    if newsess.count('("svg",{width:"11",height:"11",viewBox:"0 0 12 12"') != 1:
+        raise PatchError("[P16] 新会话加号图标尺寸锚点异常")
+    newsess = newsess.replace(
+        '("svg",{width:"11",height:"11",viewBox:"0 0 12 12"',
+        '("svg",{width:"13",height:"13",viewBox:"0 0 12 12"',
+    )
+    if refresh.count("duration-250") != 1:
+        raise PatchError("[P16] 刷新按钮时长锚点异常")
+    refresh = refresh.replace("duration-250", "duration-150")
     new_bar = (
-        f'(0,{jxs})("div",{{className:"flex items-center gap-1",children:['
+        f'(0,{jxs})("div",{{className:"flex items-center gap-1 mt-3 justify-end",children:['
+        f'{newsess},'
         f'(0,{jx})("button",{{onClick:function(){{return v()}},title:"新建目录（选择本地文件夹作为工作目录）",'
-        f'className:"{BTN_CLS}",style:{{opacity:f?0.6:1}},children:{PLUS_SVG}}}),'
+        f'className:"{UNI}",style:{{opacity:f?0.6:1}},children:{PLUS_SVG}}}),'
         f'(0,{jx})("button",{{onClick:function(){{return m(function(z){{return !z}})}},title:"历史目录列表",'
-        f'className:"{CHEV_CLS}",style:{{transform:g?"rotate(180deg)":"none",transition:"transform .15s"}},'
+        f'className:"{UNI}",style:{{transform:g?"rotate(180deg)":"none",transition:"transform .15s"}},'
         f'children:{CHEV_SVG}}}),'
-        f'{titlebtns}'
+        f'{refresh}'
         f']}})'
     )
     src = src[: m_bar.start()] + new_bar + src[m_bar.end():]
-    # ② 原标题行里那组按钮置 null（它第一处出现必在标题行，new_bar 在更后面）
-    if src.count(titlebtns) != 2:
-        raise PatchError(f"[P16] 按钮组出现 {src.count(titlebtns)} 次（期望 2：标题行+新行）")
+    # ③ 原标题行里那组按钮置 null（新行已改由 newsess/refresh 两单钮拼成，容器不再复用）
+    if src.count(titlebtns) != 1:
+        raise PatchError(f"[P16] 标题行按钮组出现 {src.count(titlebtns)} 次（期望 1）")
     src = src.replace(titlebtns, "null", 1)
 
     if MARKER not in src or "__piCLst" not in src or "_piS" not in src or "PingFang SC" not in src:
@@ -1275,22 +1316,31 @@ def main():
         raise PatchError("自检失败：P16 新建目录图标（文件夹+加号）标记异常")
     if "H(e,u)" in src:
         raise PatchError("自检失败：P16 旧路径渲染尚未移除")
-    # P16 四调：标题行的“新会话+刷新”按钮组已下移到新行（两处标记各×1，且标题行 children 尾为 null）
+    # P16 四调/五调：四钮统一样式、同行、右对齐，且顺序为 新会话→新目录→▾→刷新
     if src.count("sidebar-new-session-button") != 1 or src.count("sidebar-refresh-button") != 1:
         raise PatchError("自检失败：P16 新会话/刷新按钮下移异常")
-    if src.count('className:"ml-auto flex gap-1"') != 1:
-        raise PatchError("自检失败：P16 按钮组 ml-auto 容器数量异常")
+    _i1 = src.find("sidebar-new-session-button")
+    _i2 = src.find("新建目录（选择本地文件夹")
+    _i3 = src.find("历史目录列表")
+    _i4 = src.find("sidebar-refresh-button")
+    if not (0 <= _i1 < _i2 < _i3 < _i4):
+        raise PatchError("自检失败：P16 按钮顺序异常（应 新会话→新目录→▾→刷新）")
+    if src.count('className:"flex items-center gap-1 mt-3 justify-end"') != 1:
+        raise PatchError("自检失败：P16 按钮行容器异常（mt-3 下移 / justify-end 右对齐）")
+    if "ml-auto flex gap-1" in src:
+        raise PatchError("自检失败：P16 旧的按钮组容器未移除")
     if not re.search(r'sidebar-title-row flex items-center justify-between mb-2\.5",children:\[[^\]]{0,160}?,null\]', src):
         raise PatchError("自检失败：P16 标题行原按钮组未置空")
     # ⚠ 本补丁引入的 Tailwind 类必须已存在于编译 CSS（任意值类为构建期生成，
     #   不存在即静默失效——P15 行高踩过：改 h-[Npx] 五轮全无效）
     _css_text = open(find_css()[0], encoding="utf-8").read()
     for _c in ("flex", "items-center", "gap-1", "rounded-control",
-               "cursor-pointer", "text-text", "border", "bg-bg-hover",
-               "border-border", "hover:border-focus-ring",
-               "transition-[background-color,border-color,color]", "duration-150",
-               "shrink-0", "justify-center", "w-7", "h-7", "p-0",
-               "text-text-muted", "hover:text-text"):
+               "text-text", "border", "border-border", "text-text-dim",
+               "bg-chrome-button-bg", "hover:bg-chrome-button-hover", "hover:text-accent",
+               "hover:border-focus-ring", "cursor-not-allowed", "cursor-pointer",
+               "transition-[background-color,border-color,color,transform]", "duration-150",
+               "shrink-0", "justify-center", "justify-end", "w-7", "h-7", "p-0",
+               "mt-3", "text-text-muted"):
         _esc = re.sub(r"([\[\]\.:/\+,%#()])", r"\\\1", _c)
         if "." + _esc not in _css_text:
             raise PatchError(f"自检失败：P16 所用 Tailwind 类在编译 CSS 中不存在：{_c}")

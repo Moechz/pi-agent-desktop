@@ -433,6 +433,23 @@ children:e?H(e,u):l&&!c.current?"":d("sidebar.selectProject")})})`
   （⚠ `.self-stretch` 类在本构建 CSS 中不存在；且显式 height 会压过 stretch——
   行高由主钮 `py-1.5`+13px 内容决定）。
 
+**五调（用户 2026-09-21）：样式统一 + 排序 + 下移**
+- **四钮统一样式**：均 `h-7 w-7 p-0` 方形，底样式改用应用自带的 chrome 钮风格
+  （`bg-chrome-button-bg border-border text-text-muted` + `hover:bg-chrome-button-hover
+  hover:text-accent hover:border-focus-ring`，150ms）——所以它的类全体本来就在编译 CSS 里；
+  新目录/▾ 不再用 `bg-bg-hover`。
+- **删除新会话钮的绿色内联样式**（`var(--success-bg)` 等）以达成统一；保留其禁用分支
+  （`${e?…:“text-text-dim cursor-not-allowed”}`）与刷新钮的完成态绿勾。
+- **顺序**（左→右）= 新会话 → 新目录 → ▾ → 刷新，即用户说的“从右到左：刷新、下拉、新目录、新会话”；
+  行容器 `flex items-center gap-1 mt-3 justify-end`（右对齐）。
+- **下移**：加 `mt-3`（叠加标题行 `mb-2.5` = 22px）；⚠ `mt-2.5`/`mt-4` 在本构建 CSS 里**不存在**，
+  只能用 `mt-3`（同 P15 死类坑）。想再调只改这一个类。
+- 图标尺寸归一：新会话加号 11→13，新目录文件夹+加号 15→14，▾ 10→12，刷新 13 不动。
+- 实现：两钮变为**分别摘出**（原本是同一个 `ml-auto` 容器内的两钮，现在要分居首尾），
+  用 `jsx_expr_end` 各取整段后拼入新行；原容器不再复用，直接置 `null`。
+- 自检新增：按钮下标逆序关系（`_i1<_i2<_i3<_i4`）、行容器类串×1、旧 `ml-auto flex gap-1` 已除、
+  `duration-250` 已不在刷新钮内。
+
 **四调（用户 2026-09-21）：方形化 + 两行合一**
 - 「新建目录」去掉 `flex-1`，改为 **`w-7 h-7 p-0` 方形图标钮**（28px，与刷新钮同规格）；
   `▾` 钮也回到 `w-7 h-7`——四钮统一 28px，等高由 `h-7` 直接保证（不再需 `alignSelf:stretch`）。
