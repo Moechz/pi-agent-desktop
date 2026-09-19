@@ -1185,12 +1185,14 @@ def main():
         f'(0,{jx})("polyline",{{points:"2 3.5 5 6.5 8 3.5"}})}})'
     )
     BTN_CLS = (
-        "flex items-center px-2.5 py-1.5 rounded-control cursor-pointer text-[13px] text-text text-left "
-        "border bg-bg-hover border-border hover:border-focus-ring "
+        "flex items-center justify-center px-2.5 py-1.5 rounded-control cursor-pointer text-[13px] "
+        "text-text text-center border bg-bg-hover border-border hover:border-focus-ring "
         "transition-[background-color,border-color,color] duration-150"
     )
+    # ⚠ 高度对齐用内联 alignSelf:stretch（.self-stretch 类在本构建 CSS 中不存在，
+    #   且 h-7 显式高会压过 stretch）——两钮等高由行高（主钮 py-1.5+13px 内容）决定
     CHEV_CLS = (
-        "shrink-0 flex items-center justify-center w-7 h-7 rounded-control border bg-bg-hover border-border "
+        "shrink-0 flex items-center justify-center w-7 rounded-control border bg-bg-hover border-border "
         "text-text-muted hover:text-text cursor-pointer "
         "transition-[background-color,border-color,color] duration-150"
     )
@@ -1199,11 +1201,11 @@ def main():
         f'(0,{jxs})("button",{{onClick:function(){{return v()}},title:"选择本地文件夹作为工作目录",'
         f'className:"flex-1 {BTN_CLS}",style:{{gap:6}},children:['
         f'{PLUS_SVG},'
-        f'(0,{jx})("span",{{className:"flex-1 overflow-hidden text-ellipsis whitespace-nowrap",'
+        f'(0,{jx})("span",{{className:"overflow-hidden text-ellipsis whitespace-nowrap",'
         f'children:f?"正在打开…":"新目录"}})'
         f']}}),'
         f'(0,{jx})("button",{{onClick:function(){{return m(function(z){{return !z}})}},title:"历史目录列表",'
-        f'className:"{CHEV_CLS}",style:{{transform:g?"rotate(180deg)":"none",transition:"transform .15s"}},'
+        f'className:"{CHEV_CLS}",style:{{alignSelf:"stretch",transform:g?"rotate(180deg)":"none",transition:"transform .15s"}},'
         f'children:{CHEV_SVG}'
         f'}})'
         f']}})'
@@ -1221,10 +1223,10 @@ def main():
     #   不存在即静默失效——P15 行高踩过：改 h-[Npx] 五轮全无效）
     _css_text = open(find_css()[0], encoding="utf-8").read()
     for _c in ("flex", "items-center", "gap-1", "flex-1", "px-2.5", "py-1.5", "rounded-control",
-               "cursor-pointer", "text-[13px]", "text-text", "text-left", "border", "bg-bg-hover",
+               "cursor-pointer", "text-[13px]", "text-text", "text-center", "border", "bg-bg-hover",
                "border-border", "hover:border-focus-ring",
                "transition-[background-color,border-color,color]", "duration-150", "overflow-hidden",
-               "text-ellipsis", "whitespace-nowrap", "shrink-0", "justify-center", "w-7", "h-7",
+               "text-ellipsis", "whitespace-nowrap", "shrink-0", "justify-center", "w-7",
                "text-text-muted", "hover:text-text"):
         _esc = re.sub(r"([\[\]\.:/\+,%#()])", r"\\\1", _c)
         if "." + _esc not in _css_text:
