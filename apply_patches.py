@@ -863,11 +863,12 @@ def main():
         "(0," + G["n"] + ".jsxs)(\"div\",{onClick:function(){return " + GS["ocwd"] + "?.(G.cwd)},"
         "style:{display:\"flex\",alignItems:\"center\",gap:6,padding:\"8px 12px 4px\",cursor:\"pointer\",userSelect:\"none\"},children:["
         # 组头文件夹图标：收起=关闭文件夹(accent 色，点击展开) / 展开=打开文件夹(muted 色，点击收起)，
-        # 14px strokeWidth 2（lucide folder / folder-open 官方 path），仍可点击切换且 stopPropagation
+        # 17px strokeWidth 2（lucide folder / folder-open 官方 path；14→17 加大显眼，与工具栏主图标同级；
+        # 占宽 17+2*2=21px → 圆点槽同步 21px 保持文字左对齐），仍可点击切换且 stopPropagation
         "(0," + G["n"] + ".jsx)(\"span\",{onClick:TG,title:__piCLst[G.cwd]?\"expand\":\"collapse\","
         "style:{display:\"inline-flex\",alignItems:\"center\",justifyContent:\"center\",padding:2,marginRight:2,flexShrink:0,"
         "lineHeight:0,cursor:\"pointer\",borderRadius:4,color:__piCLst[G.cwd]?\"var(--accent)\":\"var(--text-muted)\"},"
-        "children:(0," + G["n"] + ".jsx)(\"svg\",{width:14,height:14,viewBox:\"0 0 24 24\",fill:\"none\",stroke:\"currentColor\","
+        "children:(0," + G["n"] + ".jsx)(\"svg\",{width:17,height:17,viewBox:\"0 0 24 24\",fill:\"none\",stroke:\"currentColor\","
         "strokeWidth:2,strokeLinecap:\"round\",strokeLinejoin:\"round\",style:{display:\"block\"},"
         "children:(0," + G["n"] + ".jsx)(\"path\",{d:__piCLst[G.cwd]"
         "?\"M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z\""
@@ -1107,11 +1108,11 @@ def main():
         raise PatchError(f"[P15] meta 行锚点命中 {len(ms15m)} 次")
     src = src[: ms15m[0].start()] + "null" + src[ms15m[0].end():]
     # ③ 行高：SessionItem 容器固定高 h-[52px]（原为标题+meta 两行设计）→
-    #    60px（40/50 均嫌密，2026-09-21 三调；全 chunk 唯一，含删除确认态共用）
+    #    80px（40/50/60 均嫌密，2026-09-21 四调；全 chunk 唯一，含删除确认态共用）
     old_h = "h-[52px] flex items-center pr-2"
     if src.count(old_h) != 1:
         raise PatchError(f"[P15] 行高锚点命中 {src.count(old_h)} 次")
-    src = src.replace(old_h, "h-[60px] flex items-center pr-2")
+    src = src.replace(old_h, "h-[80px] flex items-center pr-2")
 
     # ---------- P3-3：状态圆点（SessionItem 标题前） ----------
     pat_dot = r'\]\}\),\(0,(' + ID + r')\.jsxs\)\("div",\{className:"flex-1 min-w-0",children:\['
@@ -1125,11 +1126,11 @@ def main():
     if not m_sig:
         raise PatchError("[P3-dot] SessionItem 签名未找到")
     S = m_sig.group("s")
-    # v4：固定 18px 圆点槽（与组头文件夹图标同宽）——空闲不渲染圆点但占位不变，
-    # 标题恒定从 32px 起（行内边距14+槽18=组头12+图标18+2），与目录名文字左对齐，
+    # v5：固定 21px 圆点槽（与组头文件夹图标占宽同宽=17+2*2）——空闲不渲染圆点但占位不变，
+    # 标题恒定从 35px 起（行内边距14+槽21=组头12+图标占宽21+2），与目录名文字左对齐，
     # 且空闲/运行切换不再引起标题横向跳动；绿点在槽内居中，正落文件夹图标下方
     dot = (
-        ']}),(0,' + m_dot.group(1) + '.jsx)("span",{style:{width:18,flexShrink:0,display:"inline-flex",'
+        ']}),(0,' + m_dot.group(1) + '.jsx)("span",{style:{width:21,flexShrink:0,display:"inline-flex",'
         'alignItems:"center",justifyContent:"center"},'
         'children:(window.__piIsRun&&window.__piIsRun(' + S + '.id))?(0,' + m_dot.group(1) + '.jsx)("span",{title:"running",'
         'style:{width:8,height:8,borderRadius:9999,background:"#22e06b"}}):null}),'
