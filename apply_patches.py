@@ -32,6 +32,9 @@ STANDALONE = os.environ.get(
 )
 MARKER = "__piSM"  # P3 轮询器标记，存在即认为已打补丁
 DSH_MARK = "/*__piDSH*/"  # P8 全局 DSH 主题追加标记
+PI_ROW_H = 100  # P15 会话行高（px）。⚠ h-[Npx] 是 Tailwind 编译期类——编译 CSS 只含
+# 构建时用过的规则（本构建仅 .h-\[52px\]），改 className 字符串造不出新高度类，
+# 必须换自定义类 __piRowH 并由 patch_css() 注入规则；调行高只改这个常量。
 DSH2_MARK = "/*__piDSH2*/"  # P8b 字号阶梯追加标记
 FS_MARK = "/*__piFS*/"  # P8c JS 字号扫掠一次性标记（防 11→12 后被二次升 13）
 DSH_FONT = (
@@ -109,10 +112,20 @@ def patch_css():
             n6 = len(re.findall(re.escape(var) + r":#[0-9a-fA-F]{6}(?![0-9a-fA-F])", head))
             if n6 != 2:
                 raise PatchError(f"[P6] {var} 锚点异常（8位×{n8} / 6位×{n6}）")
+    # ③ P15 行高规则注入（幂等：无则文末追加 .__piRowH{height:Npx}，有则校正高度）
+    full = head + tail
+    rule_re = re.compile(r"\.__piRowH\{height:\d+px\}")
+    want = f".__piRowH{{height:{PI_ROW_H}px}}"
+    if rule_re.search(full):
+        new_full = rule_re.sub(want, full)
+    else:
+        new_full = full + want
+    if new_full != full:
+        changed = True
     if changed:
         tmp = css + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
-            f.write(head + tail)
+            f.write(new_full)
         os.replace(tmp, css)
         print(f"✅ [P6] 弹窗/面板不透明已写入 {css}")
     else:
@@ -1107,12 +1120,19 @@ def main():
     if len(ms15m) != 1:
         raise PatchError(f"[P15] meta 行锚点命中 {len(ms15m)} 次")
     src = src[: ms15m[0].start()] + "null" + src[ms15m[0].end():]
-    # ③ 行高：SessionItem 容器固定高 h-[52px]（原为标题+meta 两行设计）→
-    #    100px（40/50/60/80 均嫌密，2026-09-21 五调；全 chunk 唯一，含删除确认态共用）
-    old_h = "h-[52px] flex items-center pr-2"
-    if src.count(old_h) != 1:
-        raise PatchError(f"[P15] 行高锚点命中 {src.count(old_h)} 次")
-    src = src.replace(old_h, "h-[100px] flex items-center pr-2")
+    # ③ 行高：⚠ h-[Npx] 是 Tailwind 编译期类（CSS 仅含构建时的 .h-\[52px\] 规则），
+    #    换任意 h-[Npx] 字符串都是死类（行高回落内容自然高~22px，改多大都无效——
+    #    2026-09-21 五轮调高全不生效的根因）。改用自定义类，高度由 patch_css() 注入。
+    #    兼容历史死类中间态（h-[40/50/60/80/100px] 版本均收敛到 __piRowH）。
+    row_done = False
+    for old_cls in ("h-[52px]", "h-[40px]", "h-[50px]", "h-[60px]", "h-[80px]", "h-[100px]"):
+        anchor = old_cls + " flex items-center pr-2"
+        if src.count(anchor) == 1:
+            src = src.replace(anchor, "__piRowH flex items-center pr-2")
+            row_done = True
+            break
+    if not row_done and src.count("__piRowH flex items-center pr-2") != 1:
+        raise PatchError("[P15] 行高锚点未命中（52/历史值/自定义类均无）")
 
     # ---------- P3-3：状态圆点（SessionItem 标题前） ----------
     pat_dot = r'\]\}\),\(0,(' + ID + r')\.jsxs\)\("div",\{className:"flex-1 min-w-0",children:\['
@@ -1140,6 +1160,8 @@ def main():
 
     if MARKER not in src or "__piCLst" not in src or "_piS" not in src or "PingFang SC" not in src:
         raise PatchError("自检失败：补丁标记未出现在产物中")
+    if src.count("__piRowH flex items-center pr-2") != 1:
+        raise PatchError("自检失败：P15 行高自定义类标记异常（CSS 规则由 patch_css 注入）")
     # ⚠ 更多控件也是 18x18 viewBox 24 strokeWidth 1.8，附件自检必须延伸到子元素 rect 才唯一
     if src.count('svg",{width:"18",height:"18",viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:"1.8",strokeLinecap:"round",strokeLinejoin:"round",children:[(0,n.jsx)("rect",{x:"3",y:"3"') != 1:
         raise PatchError("自检失败：P7 附件图标标记异常")

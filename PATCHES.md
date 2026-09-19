@@ -370,8 +370,13 @@ DSH_MARK 之后的尾部为当前版；旧尾部之后追加的 P8b 块会被丢
 3. 圆点 v4（固定槽版）：行内先渲染 18px 固定宽圆点槽 span（inline-flex 居中），
    槽内条件渲染绿点 `(RUN)?(8px #22e06b 圆):null`（无灰点、无 transition；
    与 patch_dot_solid 迁移兼容——旧光晕串不存在时它自跳过）。
-4. 行高：SessionItem 容器固定类 `h-[52px] flex items-center pr-2`（全 chunk 唯一，
-   含删除确认态共用）→ `h-[100px]`——40→50→60→80 均嫌密（2026-09-21 五调定稿）。
+4. 行高：⚠ **h-[Npx] 是 Tailwind 编译期类**——编译 CSS 只含构建时用过的规则
+   （本构建仅 `.h-\[52px\]`），把 className 换成 h-[40/50/60/80/100]px 全是死类，
+   行高回落到内容自然高（~22px），改多大都无效（2026-09-21 五轮调高不生效的根因，
+   症状：用户反复喊“还是挤”）。正解：换自定义类 `__piRowH` + `patch_css()` 文末
+   幂等注入 `.__piRowH{height:PI_ROW_H}px`；调高度只改常量 `PI_ROW_H`（已测变更收敛）。
+   JS 锚点兼容历史死类中间态（40-100 全列表，遇谁换谁）。
+   自检新增：`__piRowH flex items-center pr-2`×1。
 
 自检标记：`fontVariantNumeric:"tabular-nums"`×1 + `return mi+"m"`×1。
 
