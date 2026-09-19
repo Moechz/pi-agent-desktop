@@ -98,7 +98,7 @@ fi
 echo
 echo "▶ 还原官方原版文件："
 ok=0; skip=0
-restored_js=""
+restored_js=()   # 数组：App 路径含空格（"Pi Agent Desktop.app"），字符串拼接会被 for 词切分误报
 for f in "$BK"/*.orig; do
     [ -f "$f" ] || continue
     base="$(basename "$f" .orig)"
@@ -120,7 +120,7 @@ for f in "$BK"/*.orig; do
     h_ok=""
     exp="$(grep -F "  $(basename "$f")" "$BK/MANIFEST.txt" 2>/dev/null | awk '{print $1}' | head -1)"
     [ -n "$exp" ] && { [ "$(sha "$target")" = "$exp" ] && h_ok="sha256✓" || h_ok="sha256✗"; }
-    case "$base" in *.js) restored_js="$restored_js $target" ;; esac
+    case "$base" in *.js) restored_js+=("$target") ;; esac
     echo "  ✅ $base → ${target#$APP/}  $h_ok"
     ok=$((ok+1))
 done
@@ -131,10 +131,10 @@ NODE=""
 for c in node "$HOME/.pi/agent/bin/node" /opt/homebrew/bin/node /usr/local/bin/node; do
     command -v "$c" >/dev/null 2>&1 && { NODE="$c"; break; }
 done
-if [ -n "$NODE" ] && [ -n "$restored_js" ]; then
+if [ -n "$NODE" ] && [ ${#restored_js[@]} -gt 0 ]; then
     echo
     echo "▶ 语法校验（$NODE --check）："
-    for j in $restored_js; do
+    for j in "${restored_js[@]}"; do
         if $NODE --check "$j" 2>/dev/null; then echo "  ✅ $(basename "$j")"
         else echo "  ❌ $(basename "$j") 语法错误！备份文件可能损坏"; fi
     done

@@ -42,7 +42,7 @@
 配套脚本（都在 `~/.pi-ui-patches/`，项目里另有归档副本）：
 `revert.sh`（回滚原版）｜`patch-on.sh`（重打补丁）｜`patch-off.sh`（冻结看护）｜
 `backup-app.sh`（备份采集）｜`status.sh`（体检）｜`user-data-backup.sh`（数据备份/恢复）｜
-`watch_and_apply.sh`（看护本体）
+`watch_and_apply.sh`（看护本体）｜`rollback-to.sh`（回滚补丁集到任意 git 存档点）
 
 ## 3. 决策树（先诊断，再动手；每步都有验证）
 
@@ -83,6 +83,19 @@ bash ~/.pi-ui-patches/patch-on.sh    # 解冻看护 + 备份用户数据 + 重�
 bash ~/.pi-ui-patches/revert.sh && bash ~/.pi-ui-patches/patch-on.sh
 # Cmd+Q 重启。= 从纯官方原版单遍重演全部补丁，得到最干净的定制态
 ```
+
+### 症状 G：最新改的一项把界面改坏（想回到上一项）
+
+每项修改 = 一个 git 提交 = 一个存档点。回到任意历史状态：
+
+```bash
+bash ~/.pi-ui-patches/rollback-to.sh --list      # 看存档点列表（提交号+说明）
+bash ~/.pi-ui-patches/rollback-to.sh <提交号>    # 回到那一项完成时（如 c14cee5）
+# 自动：提取该版补丁器 → 还原原版 → 重演 → 语法验收（坏存档点会拦截并提示换一个）
+# 修好后回最新版：cp <项目>/apply_patches.py ~/.pi-ui-patches/ && bash ~/.pi-ui-patches/patch-on.sh
+```
+
+前提纪律：**每改一项就 git commit + push**（提交 = 存档点）。
 
 ### 症状 D：用户数据坏了（自定义模型消失 / cwd 被清空 / 会话异常）
 
@@ -169,6 +182,8 @@ bash ~/.pi-ui-patches/patch-on.sh                                  # 重打全�
 bash ~/.pi-ui-patches/patch-off.sh                                 # 冻结看护
 bash ~/.pi-ui-patches/user-data-backup.sh --list                   # 数据备份列表
 bash ~/.pi-ui-patches/user-data-backup.sh --restore <文件>          # 数据恢复
+bash ~/.pi-ui-patches/rollback-to.sh --list                          # 补丁存档点列表
+bash ~/.pi-ui-patches/rollback-to.sh <提交号>                        # 回滚到第 N 项
 grep -l __piSM "/Applications/Pi Agent Desktop.app/Contents/Resources/standalone/.next/static/chunks/"*.js   # 补丁在位？
 # 白屏三连：revert.sh → Cmd+Q 重开 → 还不行 DMG 覆盖重装
 ```

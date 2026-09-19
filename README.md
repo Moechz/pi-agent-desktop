@@ -73,6 +73,10 @@ bash    ~/.pi-ui-patches/patch-on.sh
 bash    ~/.pi-ui-patches/backup-app.sh --from-dmg ~/Downloads/Pi-Agent-Desktop-<版本>-mac-universal.dmg
 bash    ~/.pi-ui-patches/backup-app.sh --snapshot     # 改补丁前拍快照（保留最近 10 份）
 
+# 回滚到任意历史存档点（改坏了第 N 项，回到第 N-1 项）
+bash    ~/.pi-ui-patches/rollback-to.sh --list        # 看存档点（每项修改一个 git 提交）
+bash    ~/.pi-ui-patches/rollback-to.sh <提交号>       # 回到该存档点（带语法验收）
+
 # 用户数据备份（会话/记忆/模型配置；看护每日自动，也可手动）
 bash    ~/.pi-ui-patches/user-data-backup.sh            # 立即备份
 bash    ~/.pi-ui-patches/user-data-backup.sh --list     # 列出
@@ -118,6 +122,7 @@ pi-agent-UI-change-memo/
 ├── patch-off.sh         # 冻结看护（FROZEN 哨兵）；--revert = 冻结+回滚
 ├── patch-on.sh          # 解冻 + 备份用户数据 + 立即重打补丁 + 清缓存
 ├── user-data-backup.sh  # 用户数据备份（会话/记忆/模型配置；--list/--restore/--auto）
+├── rollback-to.sh       # 回滚补丁集到任意 git 存档点（改坏第 N 项时回到第 N-1 项）
 ├── backup/              # 项目侧镜像（git 管历史）：*.orig + pristine-<版本>/（DMG 提取的真原版）
 │   ├── 0wz_4dmun1la1.js.orig        # 编译 chunk 原始版（回滚目标）
 │   ├── 0_d0l-y8ld00j.css.orig       # 主题 CSS 原始版（P6 回滚目标）
