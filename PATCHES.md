@@ -367,13 +367,21 @@ DSH_MARK 之后的尾部为当前版；旧尾部之后追加的 P8b 块会被丢
 2. meta 行（`mt-0.5 flex gap-2 text-text-dim text-[11px]` + 内部相对时间函数 +
    common.messages 消息数）整块 → `null`；函数体用非贪婪 `.*?` 跨过，
    闭合吃到 jsx 调用尾 `)`。P5 的“meta 行 11→12”条目已删除（锚点被本补丁消费）。
-3. 圆点 v3：`(window.__piIsRun&&window.__piIsRun(S.id))?(绿点 span):null,`
-   （无灰点分支、无 transition；与 patch_dot_solid 迁移兼容——旧光晕串不存在时它自跳过）。
-4. 行高压缩：SessionItem 容器固定类 `h-[52px] flex items-center pr-2`（全 chunk 唯一，
-   含删除确认态共用）→ `h-[40px]`——52px 是标题+meta 两行时代的留白，meta 删后只剩
-   一行标题，50px（40 太密，2026-09-21 二调；用户反馈“行间距太高/光标留行高太高”）。
+3. 圆点 v4（固定槽版）：行内先渲染 18px 固定宽圆点槽 span（inline-flex 居中），
+   槽内条件渲染绿点 `(RUN)?(8px #22e06b 圆):null`（无灰点、无 transition；
+   与 patch_dot_solid 迁移兼容——旧光晕串不存在时它自跳过）。
+4. 行高：SessionItem 容器固定类 `h-[52px] flex items-center pr-2`（全 chunk 唯一，
+   含删除确认态共用）→ `h-[60px]`——40（太密）→50（仍密）→60（2026-09-21 三调定稿）。
 
 自检标记：`fontVariantNumeric:"tabular-nums"`×1 + `return mi+"m"`×1。
+
+**左对齐方案（同日）**：目录名文字起点=组头左内边距12+文件夹图标18+marginRight 2=32px；
+会话行取消外层 paddingLeft:14 缩进（改 0，悬停背景整行贯通），行内固定 **18px 圆点槽**
+（宽=文件夹图标）——空闲不渲染圆点但占位不变，标题恒从 32px 起：①与目录名左对齐；
+②空闲/运行切换标题不横向跳动；③绿点在槽内居中，正落文件夹图标下方。
+⚠ 括号坑（本轮又栽）：props 里 style 对象后接 children 必须 `…"center"}` 先闭 style
+再 `,children:`，漏 `}` → JSC "Expected '}'…"；括号深度扫描器（跳字符串）可精确定位。
+⚠ 校验串要用足够长的唯一串（`justifyContent:"center"},children:` 在全文件撞 3 处）。
 
 **组头图标 v2（同日）**：▼/▲ 切换箭头改为文件夹符号（用户要求）——收起=**关闭文件夹**
 （lucide `folder` path，accent 色，点击展开）/ 展开=**打开文件夹**（lucide `folder-open`

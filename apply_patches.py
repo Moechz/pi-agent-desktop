@@ -879,8 +879,9 @@ def main():
         "run>0?(0," + G["n"] + ".jsx)(\"span\",{title:\"running\",style:{fontSize:9.5,fontWeight:700,padding:\"1px 6px\","
         "borderRadius:9999,background:\"var(--success-bg)\",color:\"var(--success)\","
         "border:\"1px solid var(--success-border)\",flexShrink:0},children:String(run)+\" \\u25b6\"}):null]}),"
-        # 已收起的组不渲染会话列表；未收起时包 paddingLeft:14 容器（二级菜单缩进效果）
-        "__piCLst[G.cwd]?null:(0," + G["n"] + ".jsx)(\"div\",{style:{paddingLeft:14},children:tree.map(function(r){return (0,"
+        # 已收起的组不渲染会话列表；未收起时不缩进（左对齐由行内 18px 圆点槽实现：
+        # 标题文字恒 32px 与组名对齐；行悬停背景整行贯通，与组头一致）
+        "__piCLst[G.cwd]?null:(0," + G["n"] + ".jsx)(\"div\",{style:{paddingLeft:0},children:tree.map(function(r){return (0,"
         + G["n"] + ".jsx)(" + G["Y"] + ",{node:r,selectedSessionId:" + G["sel"] + ","
         "onSelectSession:OS,onRenamed:" + G["ren"] + ",onSessionDeleted:function(id){" + G["cb"] + "?.(id)," + G["ld"] + "()},"
         "onBranchSession:" + G["obs"] + ",onCloneSession:" + G["ocl"] + ",onExportSession:" + G["oex"] + ",depth:0},r.session.id)})})"
@@ -1105,12 +1106,12 @@ def main():
     if len(ms15m) != 1:
         raise PatchError(f"[P15] meta 行锚点命中 {len(ms15m)} 次")
     src = src[: ms15m[0].start()] + "null" + src[ms15m[0].end():]
-    # ③ 行高压缩：SessionItem 容器固定高 h-[52px]（原为标题+meta 两行设计）→
-    #    50px（meta 已删只剩标题行；40 试过太密，50 为平衡值；全 chunk 唯一）
+    # ③ 行高：SessionItem 容器固定高 h-[52px]（原为标题+meta 两行设计）→
+    #    60px（40/50 均嫌密，2026-09-21 三调；全 chunk 唯一，含删除确认态共用）
     old_h = "h-[52px] flex items-center pr-2"
     if src.count(old_h) != 1:
         raise PatchError(f"[P15] 行高锚点命中 {src.count(old_h)} 次")
-    src = src.replace(old_h, "h-[50px] flex items-center pr-2")
+    src = src.replace(old_h, "h-[60px] flex items-center pr-2")
 
     # ---------- P3-3：状态圆点（SessionItem 标题前） ----------
     pat_dot = r'\]\}\),\(0,(' + ID + r')\.jsxs\)\("div",\{className:"flex-1 min-w-0",children:\['
@@ -1124,10 +1125,14 @@ def main():
     if not m_sig:
         raise PatchError("[P3-dot] SessionItem 签名未找到")
     S = m_sig.group("s")
-    # v3：只保留运行中绿点（空闲不渲染，用户要求取消灰点）；条件渲染，无占位
+    # v4：固定 18px 圆点槽（与组头文件夹图标同宽）——空闲不渲染圆点但占位不变，
+    # 标题恒定从 32px 起（行内边距14+槽18=组头12+图标18+2），与目录名文字左对齐，
+    # 且空闲/运行切换不再引起标题横向跳动；绿点在槽内居中，正落文件夹图标下方
     dot = (
-        ']}),(window.__piIsRun&&window.__piIsRun(' + S + '.id))?(0,' + m_dot.group(1) + '.jsx)("span",{title:"running",'
-        'style:{width:8,height:8,borderRadius:9999,flexShrink:0,marginRight:8,background:"#22e06b"}}):null,'
+        ']}),(0,' + m_dot.group(1) + '.jsx)("span",{style:{width:18,flexShrink:0,display:"inline-flex",'
+        'alignItems:"center",justifyContent:"center"},'
+        'children:(window.__piIsRun&&window.__piIsRun(' + S + '.id))?(0,' + m_dot.group(1) + '.jsx)("span",{title:"running",'
+        'style:{width:8,height:8,borderRadius:9999,background:"#22e06b"}}):null}),'
         '(0,' + m_dot.group(1) + '.jsxs)("div",{className:"flex-1 min-w-0",children:['
     )
     src = src[: m_dot.start()] + dot + src[m_dot.end():]
