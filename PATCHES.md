@@ -371,7 +371,7 @@ DSH_MARK 之后的尾部为当前版；旧尾部之后追加的 P8b 块会被丢
    槽内条件渲染绿点 `(RUN)?(8px #22e06b 圆):null`（无灰点、无 transition；
    与 patch_dot_solid 迁移兼容——旧光晕串不存在时它自跳过）。
 4. 行高：SessionItem 容器固定类 `h-[52px] flex items-center pr-2`（全 chunk 唯一，
-   含删除确认态共用）→ `h-[80px]`——40→50→60 均嫌密（2026-09-21 四调定稿）。
+   含删除确认态共用）→ `h-[100px]`——40→50→60→80 均嫌密（2026-09-21 五调定稿）。
 
 自检标记：`fontVariantNumeric:"tabular-nums"`×1 + `return mi+"m"`×1。
 
