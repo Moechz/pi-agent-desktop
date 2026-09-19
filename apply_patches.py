@@ -13,6 +13,8 @@ Pi Agent Desktop UI 补丁自动重打器（语义锚点版）
   P7 输入框下方图标统一 18px（工具行：附件/模型/模式/预设/更多控件均 18，与左下角附件同尺寸；
      思考级别弹窗图标 11→14；发送按钮：主发送 + 排队追问圆钮内箭头 15→18）
   P8 全应用 DSH Desktop 风格（字体栈 + 明暗色板 + 正文行高/标题字号；纯 CSS 追加）
+  P15 会话条目紧凑化：删 meta 行（时间+消息数），标题行最右紧凑相对时间 now/Nm/Nh/Nd，
+     圆点只留运行中绿点（空闲不渲染）
 用法：
   python3 apply_patches.py            # 打补丁（幂等，已打过则跳过）
   PI_STANDALONE=/path python3 ...     # 指定 standalone 目录（测试用）
@@ -918,14 +920,8 @@ def main():
         )
         + src[POS5 + 400:]
     )
-    # 2) 字号提升（DSH: 菜单项 13px / 次级 12px）
+    # 2) 字号提升（DSH: 菜单项 13px / 次级 12px；会话标题/meta 行已并入 P15 处理）
     size_subs = [
-        ("会话标题 12→13",
-         "text-[12px] leading-[1.4] overflow-hidden text-ellipsis whitespace-nowrap ",
-         "text-[13px] leading-[1.4] overflow-hidden text-ellipsis whitespace-nowrap "),
-        ("meta 行 11→12",
-         '"mt-0.5 flex gap-2 text-text-dim text-[11px]"',
-         '"mt-0.5 flex gap-2 text-text-dim text-[12px]"'),
         ("重命名输入 12→13",
          '"flex-1 text-[12px] py-1.25 px-2 border border-accent rounded-control outline-none bg-bg text-text h-[30px]"',
          '"flex-1 text-[13px] py-1.25 px-2 border border-accent rounded-control outline-none bg-bg text-text h-[30px]"'),
@@ -1063,6 +1059,49 @@ def main():
             raise PatchError(f"[P6b] {name6} 锚点命中 {c6} 次")
         src = src.replace(old6, new6)
 
+    # ---------- P15：会话条目紧凑化（删 meta 行 + 标题右紧凑时间） ----------
+    # ① 标题行 → flex 行：标题(13px/ellipsis/flex-1) + 最右紧凑相对时间（now/Nm/Nh/Nd，
+    #    tabular-nums 防跳动，title 悬停看完整时间戳）；
+    # ② meta 行（mt-0.5 时间+消息数）整块 → null（用户反馈排版乱）；
+    #    两锚点均为原始串（P5 已不碰这两处，见 size_subs 注释）
+    pat_p15t = (
+        r'\(0,(' + ID + r')\.jsx\)\("div",\{className:`text-\[12px\] leading-\[1\.4\] overflow-hidden '
+        r'text-ellipsis whitespace-nowrap \$\{(' + ID + r')\?"font-semibold text-text-strong":"font-medium text-text"\}`,'
+        r'title:(' + ID + r'),children:\3\}\)'
+    )
+    ms15t = list(re.finditer(pat_p15t, src))
+    if len(ms15t) != 1:
+        raise PatchError(f"[P15] 标题行锚点命中 {len(ms15t)} 次")
+    # session 变量名：标题锚点前最近的 function({session:X,isSelected: 签名
+    m_sig15 = None
+    for mm in re.finditer(r"function\s?[\w$]*\(\{session:(" + ID + r"),isSelected:", src[: ms15t[0].start()]):
+        m_sig15 = mm
+    if not m_sig15:
+        raise PatchError("[P15] SessionItem 签名未找到")
+    N15, T15, D15, S15 = ms15t[0].group(1), ms15t[0].group(2), ms15t[0].group(3), m_sig15.group(1)
+    new_title = (
+        '(0,' + N15 + '.jsxs)("div",{style:{display:"flex",alignItems:"baseline",minWidth:0},children:['
+        '(0,' + N15 + '.jsx)("div",{className:`text-[13px] leading-[1.4] overflow-hidden text-ellipsis whitespace-nowrap flex-1 min-w-0 '
+        '${' + T15 + '?"font-semibold text-text-strong":"font-medium text-text"}`,title:' + D15 + ',children:' + D15 + '}),'
+        '(0,' + N15 + '.jsx)("span",{title:' + S15 + '.modified,'
+        'style:{fontSize:10.5,color:"var(--text-dim)",flexShrink:0,marginLeft:4,fontVariantNumeric:"tabular-nums"},'
+        'children:(function(ms){var df=Date.now()-new Date(ms).getTime();var mi=Math.floor(df/6e4);'
+        'if(mi<1)return"now";if(mi<60)return mi+"m";var hh=Math.floor(mi/60);'
+        'if(hh<24)return hh+"h";return Math.floor(hh/24)+"d"})(' + S15 + '.modified)})]})'
+    )
+    src = src[: ms15t[0].start()] + new_title + src[ms15t[0].end():]
+    # ② meta 行（时间 + 消息数）整块 → null；内部相对时间函数用非贪婪 `.*?` 跨过函数体
+    pat_p15m = (
+        r'\(0,(' + ID + r')\.jsxs\)\("div",\{className:"mt-0\.5 flex gap-2 text-text-dim text-\[11px\]",children:\['
+        r'\(0,\1\.jsx\)\("span",\{title:(' + ID + r')\.modified,children:function\([^)]*\)\{.*?\}\(\2\.modified,(' + ID + r')\)\}\),'
+        r'\(0,\1\.jsx\)\("span",\{children:(' + ID + r')\("common\.messages",\{count:\2\.messageCount\}\)\}\)'
+        r'\]\}\)'
+    )
+    ms15m = list(re.finditer(pat_p15m, src))
+    if len(ms15m) != 1:
+        raise PatchError(f"[P15] meta 行锚点命中 {len(ms15m)} 次")
+    src = src[: ms15m[0].start()] + "null" + src[ms15m[0].end():]
+
     # ---------- P3-3：状态圆点（SessionItem 标题前） ----------
     pat_dot = r'\]\}\),\(0,(' + ID + r')\.jsxs\)\("div",\{className:"flex-1 min-w-0",children:\['
     m_dot = re.search(pat_dot, src)
@@ -1075,13 +1114,10 @@ def main():
     if not m_sig:
         raise PatchError("[P3-dot] SessionItem 签名未找到")
     S = m_sig.group("s")
+    # v3：只保留运行中绿点（空闲不渲染，用户要求取消灰点）；条件渲染，无占位
     dot = (
-        ']}),(0,' + m_dot.group(1) + '.jsx)("span",{title:window.__piIsRun&&window.__piIsRun(' + S + '.id)?"running":"idle",'
-        "style:{width:8,height:8,borderRadius:9999,flexShrink:0,marginLeft:2,marginRight:8,"
-        "background:window.__piIsRun&&window.__piIsRun(" + S + '.id)?"#22e06b":"var(--text-muted)",'
-        "opacity:window.__piIsRun&&window.__piIsRun(" + S + '.id)?1:.55,'
-        # v2：去光晕实体圆点（用户 2026-09-19 要求），无 boxShadow；旧文件由 patch_dot_solid 迁移
-        'transition:"background .3s,opacity .3s"}}),'
+        ']}),(window.__piIsRun&&window.__piIsRun(' + S + '.id))?(0,' + m_dot.group(1) + '.jsx)("span",{title:"running",'
+        'style:{width:8,height:8,borderRadius:9999,flexShrink:0,marginRight:8,background:"#22e06b"}}):null,'
         '(0,' + m_dot.group(1) + '.jsxs)("div",{className:"flex-1 min-w-0",children:['
     )
     src = src[: m_dot.start()] + dot + src[m_dot.end():]
@@ -1101,6 +1137,10 @@ def main():
         raise PatchError("自检失败：P7 喇叭图标标记异常")
     if src.count('marginRight:6,background:"var(--bg)"') != 1:
         raise PatchError("自检失败：P6b 标记异常")
+    if src.count('fontVariantNumeric:"tabular-nums"') != 1:
+        raise PatchError("自检失败：P15 标记异常")
+    if src.count('return mi+"m"') != 1:
+        raise PatchError("自检失败：P15 时间函数标记异常")
 
     tmp = chunk + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:

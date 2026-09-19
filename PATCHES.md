@@ -350,6 +350,28 @@ UI chrome 的 fontSize:12 inline（79 处）保留 Pi 节奏，避免大面积�
 DSH_MARK 之后的尾部为当前版；旧尾部之后追加的 P8b 块会被丢弃并由
 `patch_css_dsh2` 自动重新追加（自愈闭环）。
 
+## 4e. P15 — 会话条目紧凑化（删 meta 行 + 标题右紧凑时间 + 圆点只留运行绿点）
+
+**产品语义**（用户 2026-09-21 三项要求）：①会话标题下方的“时间+消息数”meta 行
+不再显示（排版乱）；②标题行最右固定位置显示紧凑相对时间：`now`(<1min)/`Nm`(<1h)/
+`Nh`(<24h)/`Nd`（tabular-nums 防跳动，悬停 title 看完整时间戳）；③灰点取消，
+只保留运行中绿点（条件渲染，空闲无点无占位）。
+
+**变换**（JS，三处，均在 MARKER 主流程内）：
+1. 标题行 → flex 行（基线对齐）：标题 div（13px/ellipsis/flex-1 min-w-0，P5 的
+   “会话标题 12→13”条目已并入此处）+ 时间 span（fontSize:10.5 不受 P8c 扫掠影响，
+   内联自包含格式化函数 `function(ms){...}` 从 session.modified 算相对时间）。
+   ⚠ 括号坑（首版即栽）：正则必须吃到 jsx 调用的尾 `)`（`children:D}\)`），
+   否则替换后残留孤儿 `)` 报 SyntaxError（JSC/node --check 双校验必做）。
+   session 变量名从标题锚点前最近的 `function({session:X,isSelected:` 签名取。
+2. meta 行（`mt-0.5 flex gap-2 text-text-dim text-[11px]` + 内部相对时间函数 +
+   common.messages 消息数）整块 → `null`；函数体用非贪婪 `.*?` 跨过，
+   闭合吃到 jsx 调用尾 `)`。P5 的“meta 行 11→12”条目已删除（锚点被本补丁消费）。
+3. 圆点 v3：`(window.__piIsRun&&window.__piIsRun(S.id))?(绿点 span):null,`
+   （无灰点分支、无 transition；与 patch_dot_solid 迁移兼容——旧光晕串不存在时它自跳过）。
+
+自检标记：`fontVariantNumeric:"tabular-nums"`×1 + `return mi+"m"`×1。
+
 ## 5. 验证流程（每次适配后必做）
 
 ```bash
