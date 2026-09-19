@@ -1158,10 +1158,77 @@ def main():
     )
     src = src[: m_dot.start()] + dot + src[m_dot.end():]
 
+    # ---------- P16：顶部路径栏 → “+ 新目录”动作按钮（原生目录选择器直通） ----------
+    # 原顶部刍（显示 H(path) 缩写，点击开历史目录下拉）改为：
+    #   左： “+ 新目录” flex-1 按钮 → 直接调 v()（即原下拉里“+ 自定义路径”的功能：
+    #       W() → window.electronAPI.selectDirectory() / POST /api/select-directory）
+    #   右： 小 ▾ 按钮（w-7，展开时旋转）→ 仍开原下拉（历史目录/默认目录/自定义路径）
+    # 文案硬编码中文（未动语言包 chunk，避免扩大补丁面；i18n 化思路见 PATCHES.md）。
+    pat_cwdbar = re.compile(
+        r'\(0,(?P<ns>[A-Za-z_$][\w$]*)\.jsx\)\("button",\{onClick:\(\)=>m\(e=>!e\),className:`[^`]*`,'
+        r'children:\(0,(?P=ns)\.jsx\)\("span",\{className:`[^`]*`,title:e\?\?"",'
+        r'children:e\?H\(e,u\):l&&!c\.current\?"":d\("sidebar\.selectProject"\)\}\)\}\)'
+    )
+    m_bar = pat_cwdbar.search(src)
+    if not m_bar:
+        raise PatchError("[P16] 顶部目录栏锚点未命中")
+    ns = m_bar.group("ns")
+    jx, jxs = ns + ".jsx", ns + ".jsxs"
+    PLUS_SVG = (
+        f'(0,{jx})("svg",{{width:"12",height:"12",viewBox:"0 0 12 12",fill:"none",stroke:"currentColor",'
+        f'strokeWidth:"2.2",strokeLinecap:"round",children:[(0,{jx})("line",{{x1:"6",y1:"1",x2:"6",y2:"11"}}),'
+        f'(0,{jx})("line",{{x1:"1",y1:"6",x2:"11",y2:"6"}})]}})'
+    )
+    CHEV_SVG = (
+        f'(0,{jx})("svg",{{width:"10",height:"10",viewBox:"0 0 10 10",fill:"none",stroke:"currentColor",'
+        f'strokeWidth:"1.8",strokeLinecap:"round",strokeLinejoin:"round",children:'
+        f'(0,{jx})("polyline",{{points:"2 3.5 5 6.5 8 3.5"}})}})'
+    )
+    BTN_CLS = (
+        "flex items-center px-2.5 py-1.5 rounded-control cursor-pointer text-[13px] text-text text-left "
+        "border bg-bg-hover border-border hover:border-focus-ring "
+        "transition-[background-color,border-color,color] duration-150"
+    )
+    CHEV_CLS = (
+        "shrink-0 flex items-center justify-center w-7 h-7 rounded-control border bg-bg-hover border-border "
+        "text-text-muted hover:text-text cursor-pointer "
+        "transition-[background-color,border-color,color] duration-150"
+    )
+    new_bar = (
+        f'(0,{jxs})("div",{{className:"flex items-center gap-1",children:['
+        f'(0,{jxs})("button",{{onClick:function(){{return v()}},title:"选择本地文件夹作为工作目录",'
+        f'className:"flex-1 {BTN_CLS}",style:{{gap:6}},children:['
+        f'{PLUS_SVG},'
+        f'(0,{jx})("span",{{className:"flex-1 overflow-hidden text-ellipsis whitespace-nowrap",'
+        f'children:f?"正在打开…":"新目录"}})'
+        f']}}),'
+        f'(0,{jx})("button",{{onClick:function(){{return m(function(z){{return !z}})}},title:"历史目录列表",'
+        f'className:"{CHEV_CLS}",style:{{transform:g?"rotate(180deg)":"none",transition:"transform .15s"}},'
+        f'children:{CHEV_SVG}'
+        f'}})'
+        f']}})'
+    )
+    src = src[: m_bar.start()] + new_bar + src[m_bar.end():]
+
     if MARKER not in src or "__piCLst" not in src or "_piS" not in src or "PingFang SC" not in src:
         raise PatchError("自检失败：补丁标记未出现在产物中")
     if src.count("__piRowH flex items-center pr-2") != 1:
         raise PatchError("自检失败：P15 行高自定义类标记异常（CSS 规则由 patch_css 注入）")
+    # P16：顶部目录栏已换成“+ 新目录”（v()）+ ▾ 展开钮，且旧路径渲染已不存在
+    if src.count('children:f?"正在打开…":"新目录"') != 1 or "sidebar.selectProject" in src and "H(e,u)" in src:
+        raise PatchError("自检失败：P16 目录栏改造标记异常")
+    # ⚠ 本补丁引入的 Tailwind 类必须已存在于编译 CSS（任意值类为构建期生成，
+    #   不存在即静默失效——P15 行高踩过：改 h-[Npx] 五轮全无效）
+    _css_text = open(find_css()[0], encoding="utf-8").read()
+    for _c in ("flex", "items-center", "gap-1", "flex-1", "px-2.5", "py-1.5", "rounded-control",
+               "cursor-pointer", "text-[13px]", "text-text", "text-left", "border", "bg-bg-hover",
+               "border-border", "hover:border-focus-ring",
+               "transition-[background-color,border-color,color]", "duration-150", "overflow-hidden",
+               "text-ellipsis", "whitespace-nowrap", "shrink-0", "justify-center", "w-7", "h-7",
+               "text-text-muted", "hover:text-text"):
+        _esc = re.sub(r"([\[\]\.:/\+,%#()])", r"\\\1", _c)
+        if "." + _esc not in _css_text:
+            raise PatchError(f"自检失败：P16 所用 Tailwind 类在编译 CSS 中不存在：{_c}")
     # ⚠ 更多控件也是 18x18 viewBox 24 strokeWidth 1.8，附件自检必须延伸到子元素 rect 才唯一
     if src.count('svg",{width:"18",height:"18",viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:"1.8",strokeLinecap:"round",strokeLinejoin:"round",children:[(0,n.jsx)("rect",{x:"3",y:"3"') != 1:
         raise PatchError("自检失败：P7 附件图标标记异常")

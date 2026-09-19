@@ -391,8 +391,47 @@ DSH_MARK 之后的尾部为当前版；旧尾部之后追加的 P8b 块会被丢
 
 **组头图标 v2（同日）**：▼/▲ 切换箭头改为文件夹符号（用户要求）——收起=**关闭文件夹**
 （lucide `folder` path，accent 色，点击展开）/ 展开=**打开文件夹**（lucide `folder-open`
-path，muted 色，点击收起）；14px strokeWidth 2，仍 stopPropagation 不触发组头切换项目。
+path，muted 色，点击收起）；17px strokeWidth 2（14→17 加大，用户要求显眼；占宽 21px，
+圆点槽同步 21px），仍 stopPropagation 不触发组头切换项目。
 实现在 P3-2 grouped 渲染的箭头 span 内（改 svg path 字面量，逻辑/颜色方案不变）。
+
+## 4f. P16 — 顶部路径栏 → “+ 新目录”按钮（用户 2026-09-21）
+
+**需求**：侧边栏顶部原本显示当前工作目录缩写（`H(path,u)` → `~/…/末两段`）的栏目，
+不再显示路径，改为显示 **“+ 新目录”**；点击即弹系统文件夹选择器（= 原下拉底部
+“+ 自定义路径”项的功能，用户要求把它提到最外层并改名）。
+
+**原实现定位**（组件 `q`，侧边栏顶部）：
+```
+function q({selectedCwd:e,onCwdChange:t,...}){
+  [u,p]=useState("")            // home 目录
+  [g,m]=useState(!1)            // g=下拉开,m=setter
+  [f,b]=useState(!1)            // f=选择器进行中
+  v = useCallback(async()=>{ ... await W(); nextCwd→t(r); b(!1);m(!1) })   // 目录选择器
+  E = ... fetch("/api/default-cwd")                                        // 默认目录
+  V(x,g||f, ()=>{m(!1),b(!1)})  // 点击外部关闭
+}
+W() = electronAPI.selectDirectory() 兜底 POST /api/select-directory   // 系统选目录
+```
+
+**变换**（JS 一处，MARKER 主流程内，正则捕获命名空间变量 `(?P<ns>…)` 后重建）：
+锚点 = 无 `sidebar.selectProject` 的那个 path 主按钮（语义串锁）：
+`(0,NS.jsx)("button",{onClick:()=>m(e=>!e),className:<tpl>,children:(0,NS.jsx)("span",{…
+children:e?H(e,u):l&&!c.current?"":d("sidebar.selectProject")})})`
+→ 换为 `div.flex.items-center.gap-1` 包两个按钮：
+- **主按钮**（`flex-1`，样式复用原路径栏）：`onClick=()=>v()`（直通系统选目录），
+  子 = 12px 加号 svg（与“新建会话”同形）+ 文本 `f?"正在打开…":"新目录"`
+- **▾ 钮**（`w-7 h-7`）：`onClick=()=>m(z=>!z)` 仍开原历史目录下拉（g 时旋转 180°）
+
+**保留**：原下拉（历史目录前 5 / 使用默认目录 / 自定义路径）全不动——▾ 钮是入口。
+（若用户不想要 ▾，直接删第二个 button 即可，下拉随之失去入口变成死代码。）
+
+**⚠ 本补丁引入的 Tailwind 类必须已在编译 CSS 中存在**（任意值类构建期生成，不存在即静默失效——
+P15 行高踩过此坑）；已在自检里加 26 个类的存在性断言（转义规则：`[ ] . : / + , % # ( )` 前加 `\`）。
+**i18n 取舍**：按钮文案硬编码中文（未动语言包 chunk `1sbj4hc6m3k0-.js`/`0kv-dg468563p.js`，
+避免扩大补丁面与 revert/watcher 覆盖面）；若后续要 i18n 化，改 zh `sidebar.customPath` → “新目录”
+并改用 `d("sidebar.customPath")` 即可（en 值已是 Custom path…）。
+**自检标记**：`children:f?"正在打开…":"新目录"`×1 且 `H(e,u)`×0（旧路径渲染已消失）。
 
 ## 5. 验证流程（每次适配后必做）
 
