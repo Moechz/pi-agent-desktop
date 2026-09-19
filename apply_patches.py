@@ -1280,10 +1280,16 @@ def main():
     )
     if newsess.count('("svg",{width:"11",height:"11",viewBox:"0 0 12 12"') != 1:
         raise PatchError("[P16] 新会话加号图标尺寸锚点异常")
-    newsess = newsess.replace(
-        '("svg",{width:"11",height:"11",viewBox:"0 0 12 12"',
-        '("svg",{width:"13",height:"13",viewBox:"0 0 12 12"',
-    )
+    # 七调：+ 号改小改细（用户反馈太粗大、与文字不协调）——
+    #   尺寸回 11px（上轮改 13 偏大）、描边 2.2→1.6、十字从满框（1..11）收进到 2.5..9.5
+    for _old, _new in (
+        ('strokeWidth:"2.2"', 'strokeWidth:"1.6"'),
+        ('{x1:"6",y1:"1",x2:"6",y2:"11"}', '{x1:"6",y1:"2.5",x2:"6",y2:"9.5"}'),
+        ('{x1:"1",y1:"6",x2:"11",y2:"6"}', '{x1:"2.5",y1:"6",x2:"9.5",y2:"6"}'),
+    ):
+        if newsess.count(_old) != 1:
+            raise PatchError(f"[P16] 新会话加号锚点异常：{_old} × {newsess.count(_old)}")
+        newsess = newsess.replace(_old, _new)
     if refresh.count("duration-250") != 1:
         raise PatchError("[P16] 刷新按钮时长锚点异常")
     refresh = refresh.replace("duration-250", "duration-150")
@@ -1335,6 +1341,10 @@ def main():
         raise PatchError("自检失败：P16 按钮行容器异常（内联下移 24px / justify-end 右对齐）")
     if src.count('("span",{children:"新会话"})') != 1:
         raise PatchError("自检失败：P16 新会话文字标签异常")
+    # 七调：+ 号改小改细（十字收进 2.5..9.5 为原版不存在的唯一标记；
+    #   ⚠ strokeWidth:"1.6" 原版已有 2 处，不能当标记）
+    if src.count('{x1:"6",y1:"2.5",x2:"6",y2:"9.5"}') != 1:
+        raise PatchError("自检失败：P16 新会话加号改细标记异常")
     if "ml-auto flex gap-1" in src:
         raise PatchError("自检失败：P16 旧的按钮组容器未移除")
     if not re.search(r'sidebar-title-row flex items-center justify-between mb-2\.5",children:\[[^\]]{0,160}?,null\]', src):
