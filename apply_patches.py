@@ -1316,15 +1316,155 @@ def main():
         raise PatchError(f"[P16] 标题行按钮组出现 {src.count(titlebtns)} 次（期望 1）")
     src = src.replace(titlebtns, "null", 1)
 
+    # ---------- P17：新会话输入框左上角显示当前目录名 + ▾ 切换目录弹窗（用户 2026-09-21） ----------
+    # 链路：shell（dz 调用） → dz（解构） → dd（composer，forwardRef）
+    #   ① shell 给 dz 追加 piOnCwdChange:ej（与侧边栏“+ 新会话”同一处理函数：会设新会话目录 m、
+     #      切已选项目目录 e_、刷新）与 piDirOptions（最近目录前 5，自包含 IIFE 从 sessions 算）
+    #   ② dz 解构接收并转发给 dd，额外传 piIsNew:!e（仅无会话时显目录行）
+    #   ③ dd：加 piOpen 状态 + piRef + 点击外部关闭 V()，在 maxWidth:820 容器首位渲染目录行；
+    #      ▾ 弹窗向上展开：最近目录（当前项打勾）/ 使用默认目录 / 选择其他目录…（直接用 electronAPI，
+    #       ⚠ 不能调模块级 W()/G()——dd 作用域里它们已被同名的 useState 局部变量遮蔽）
+    #   全用内联样式 + 应用已有类串，避开 Tailwind 任意值死类。
+    m_ej2 = re.search(r'(?P<ej>' + ID + r')=\(0,r\.useCallback\)\(\(e,n\)=>\{p\(null\),', src)
+    if not m_ej2:
+        raise PatchError("[P17] ej（新会话处理函数）锚点未命中")
+    EJ = m_ej2.group("ej")
+    m_sess = re.search(r'(?P<eH>' + ID + r')=(?P<J>' + ID + r')\.find\(e=>e\.id===' + ID + r'\)\?\?null', src)
+    if not m_sess:
+        raise PatchError("[P17] sessions 数组锚点未命中")
+    SESS = m_sess.group("J")
+    # 最近目录（自包含：按 modified 降序去重取前 5）
+    dirs_expr = (
+        '(function(s){var m={},i,c,t;for(i=0;i<s.length;i++){c=s[i]&&s[i].cwd;if(!c)continue;'
+        't=s[i].modified||"";if(!m[c]||t>m[c])m[c]=t}var a=Object.keys(m);'
+        'a.sort(function(x,y){return m[y].localeCompare(m[x])});return a.slice(0,5)})((' + SESS + '||[]))'
+    )
+    src = sub_once(
+        src,
+        r'onContextUsageChange:(?P<cuc>' + ID + r')\},(?P<key>' + ID + r')\)',
+        'onContextUsageChange:\\g<cuc>,piOnCwdChange:' + EJ + ',piDirOptions:' + dirs_expr + '},\\g<key>)',
+        "P17-shell",
+    )
+    src = sub_once(
+        src,
+        r'onContextUsageChange:(?P<cuc>' + ID + r')\}\)\{',
+        'onContextUsageChange:\\g<cuc>,piOnCwdChange:piOnCwd,piDirOptions:piDirs}){',
+        "P17-dz-sig",
+    )
+    src = sub_once(
+        src,
+        r'onSoundToggle:(?P<ost>' + ID + r')\}\)',
+        'onSoundToggle:\\g<ost>,piOnCwdChange:piOnCwd,piDirOptions:piDirs,piIsNew:!e})',
+        "P17-dz-fwd",
+    )
+    src = sub_once(
+        src,
+        r',onReorderFollowUps:(?P<nru>' + ID + r')\},(?P<R>' + ID + r')\)\{',
+        ',onReorderFollowUps:\\g<nru>,piOnCwdChange:piOnCwd,piDirOptions:piDirs,piIsNew:piIsNew},\\g<R>){',
+        "P17-dd-sig",
+    )
+    m_ddcwd = re.search(r'currentCwd:(?P<cwd>' + ID + r'),onCompact:', src)
+    if not m_ddcwd:
+        raise PatchError("[P17] dd 的 currentCwd 锚点未命中")
+    CWD = m_ddcwd.group("cwd")
+    src = sub_once(
+        src,
+        r'\},(?P<R>' + ID + r')\)\{let\{t:(?P<it>' + ID + r')\}=\(0,(?P<M>' + ID + r')\.useI18n\)\(\),',
+        '},\\g<R>){let{t:\\g<it>}=(0,\\g<M>.useI18n)(),[piOpen,piSetOpen]=(0,r.useState)(!1),piRef=(0,r.useRef)(null),',
+        "P17-dd-state",
+    )
+    src = sub_once(
+        src,
+        r'V\((?P<r1>' + ID + r'),(?P<s1>' + ID + r'),\(\)=>(?P<f1>' + ID + r')\(!1\)\),'
+        r'\(0,(?P<ns>' + ID + r')\.jsxs\)\("div",\{style:\{flexShrink:0,background:"transparent",padding:"0 16px 10px",paddingRight:52\}',
+        'V(\\g<r1>,\\g<s1>,()=>\\g<f1>(!1)),'
+        'V(piRef,piOpen,function(){piSetOpen(!1)}),'
+        '(0,\\g<ns>.jsxs)("div",{style:{flexShrink:0,background:"transparent",padding:"0 16px 10px",paddingRight:52}',
+        "P17-dd-return",
+    )
+    m_hdr = re.search(
+        r'\(0,(?P<ns>' + ID + r')\.jsxs\)\("div",\{style:\{maxWidth:820,margin:"0 auto"\},children:\[', src
+    )
+    if not m_hdr:
+        raise PatchError("[P17] composer maxWidth:820 容器锚点未命中")
+    NS = m_hdr.group("ns")
+    JX, JXS = "(0," + NS + ".jsx)", "(0," + NS + ".jsxs)"
+    FOLDER_SVG = (
+        JX + '("svg",{width:"13",height:"13",viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",'
+        'strokeWidth:"1.7",strokeLinecap:"round",strokeLinejoin:"round",'
+        'style:{color:"var(--text-dim)",flexShrink:0},children:' + JX + '("path",{d:"M20 20a2 2 0 0 0'
+        ' 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0'
+        ' 2 2Z"})})'
+    )
+    CHEV_SVG = (
+        JX + '("svg",{width:"10",height:"10",viewBox:"0 0 10 10",fill:"none",stroke:"currentColor",'
+        'strokeWidth:"1.8",strokeLinecap:"round",strokeLinejoin:"round",'
+        'children:' + JX + '("polyline",{points:"2 3.5 5 6.5 8 3.5"})})'
+    )
+    CHECK_SVG = (
+        JX + '("svg",{width:"11",height:"11",viewBox:"0 0 10 10",fill:"none",stroke:"var(--accent)",'
+        'strokeWidth:"2",strokeLinecap:"round",strokeLinejoin:"round",style:{flexShrink:0},children:'
+        + JX + '("polyline",{points:"1.5 5 4 7.5 8.5 2.5"})})'
+    )
+    ROW_CLS = (
+        'w-full flex items-center gap-2 px-3 py-1.5 hover:bg-bg-hover text-left cursor-pointer '
+        'transition-colors border-none bg-transparent text-text'
+    )
+    # 自包含：系统选目录（electronAPI 优先，完底 /api/select-directory）——不能用被遮蔽的 W()
+    PICK = (
+        '(function(){var t=window.electronAPI;if(t&&t.selectDirectory)return t.selectDirectory();'
+        'return fetch("/api/select-directory",{method:"POST"}).then(function(r){return r.json()})'
+        '.then(function(r){return r&&r.path?r.path:null})})()'
+    )
+    hdr = "".join([
+        JXS + '("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:6,minWidth:0},children:[',
+        FOLDER_SVG + ',',
+        JX + '("span",{title:' + CWD + '??"",style:{fontSize:12,fontFamily:"var(--font-mono)",color:"var(--text-dim)",'
+        'overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"},children:(' + CWD + '||"").split("/")'
+        '.filter(Boolean).slice(-1)[0]||"未选择目录"}),',
+        JXS + '("div",{ref:piRef,style:{position:"relative",display:"flex",alignItems:"center"},children:[',
+        JX + '("button",{type:"button",onClick:function(){piSetOpen(function(z){return !z})},title:"切换目录",',
+        'style:{display:"flex",alignItems:"center",justifyContent:"center",gap:2,padding:"1px 4px",background:"none",',
+        'border:"none",borderRadius:4,color:"var(--text-muted)",cursor:"pointer"},children:[' + CHEV_SVG + ']}),',
+        'piOpen&&' + JXS + '("div",{className:"t-dropdown is-open",style:{position:"absolute",left:0,',
+        'bottom:"calc(100% + 6px)",zIndex:200,minWidth:240,maxHeight:340,overflowY:"auto",',
+        'background:"var(--bg)",border:"1px solid var(--border)",borderRadius:"var(--radius-panel)",',
+        'boxShadow:"var(--shadow-popover)",padding:4},children:[',
+        JX + '("div",{style:{padding:"5px 8px 3px",fontSize:10,fontWeight:600,textTransform:"uppercase",',
+        'letterSpacing:"0.06em",color:"var(--text-dim)"},children:"最近目录"}),',
+        '(piDirs||[]).length===0?' + JX + '("div",{style:{padding:"6px 8px",fontSize:12,color:"var(--text-dim)"},',
+        'children:"暂无记录"}):(piDirs||[]).map(function(d){return ' + JXS + '("button",{type:"button",',
+        'onClick:function(){piSetOpen(!1),piOnCwd(d)},title:d,className:"' + ROW_CLS + '",',
+        'style:{borderRadius:6,fontSize:12},children:[d===' + CWD + '?' + CHECK_SVG + ':' + JX + '("span",{style:{width:11,flexShrink:0}}),',
+        JX + '("span",{style:{flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"},',
+        'children:(d||"").split("/").filter(Boolean).slice(-1)[0]||d})]},d)}),',
+        JX + '("div",{style:{margin:"4px 0",borderTop:"1px solid var(--border)"}}),',
+        JX + '("button",{type:"button",onClick:function(){piSetOpen(!1),fetch("/api/default-cwd",{method:"POST"})',
+        '.then(function(r){return r.json()}).then(function(r){r&&r.cwd&&piOnCwd(r.cwd)}).catch(function(){})},',
+        'className:"' + ROW_CLS + '",style:{borderRadius:6,fontSize:12},children:"使用默认目录"}),',
+        JX + '("button",{type:"button",onClick:function(){piSetOpen(!1),' + PICK + '.then(function(p){p&&String(p).trim()&&piOnCwd(String(p).trim())}).catch(function(){})},',
+        'className:"' + ROW_CLS + '",style:{borderRadius:6,fontSize:12},children:"选择其他目录…"})',
+        ']})',
+        ']})',
+        ']}),',
+    ])
+    src = sub_once(
+        src,
+        r'\(0,(?P<ns>' + ID + r')\.jsxs\)\("div",\{style:\{maxWidth:820,margin:"0 auto"\},children:\[',
+        '(0,\\g<ns>.jsxs)("div",{style:{maxWidth:820,margin:"0 auto"},children:[piIsNew?'
+        + hdr.replace("\\", "\\\\") + ':null,',
+        "P17-dd-header",
+    )
+
     if MARKER not in src or "__piCLst" not in src or "_piS" not in src or "PingFang SC" not in src:
         raise PatchError("自检失败：补丁标记未出现在产物中")
     if src.count("__piRowH flex items-center pr-2") != 1:
         raise PatchError("自检失败：P15 行高自定义类标记异常（CSS 规则由 patch_css 注入）")
     # P16：顶部目录栏已换成“文件夹+加号”图标钮（v()）+ ▾ 展开钮，且旧路径渲染已不存在
     # ⚠ 组头那处路径是三元字面量 `d:__piCLst[...]?"M20 20a2…"`（前面是 ? 不是 d:"），
-    #   所以只能用不带前缀的宽松串计数（= 1 组头 + 1 本钮 = 2）
+    #   所以只能用不带前缀的宽松串计数：现应为 3 处 = 1 组头（P3-2）+ 1 新建目录钮（P16）+ 1 P17 目录行图标
     if (src.count('d:"M12 10v6"') != 1 or src.count('d:"M9 13h6"') != 1
-            or src.count('M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9') != 2):
+            or src.count('M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9') != 3):
         raise PatchError("自检失败：P16 新建目录图标（文件夹+加号）标记异常")
     if "H(e,u)" in src:
         raise PatchError("自检失败：P16 旧路径渲染尚未移除")
@@ -1341,6 +1481,19 @@ def main():
         raise PatchError("自检失败：P16 按钮行容器异常（内联下移 24px / justify-end 右对齐）")
     if src.count('("span",{children:"新会话"})') != 1:
         raise PatchError("自检失败：P16 新会话文字标签异常")
+    # P17：目录行 + ▾ 弹窗（shell→dz→dd 三层链路均需到位）
+    if src.count("piOnCwdChange:") != 4:
+        raise PatchError(f"自检失败：P17 切换目录回调链路异常（{src.count('piOnCwdChange:')} 处，期望 4：shell→dz 传参、dz 解构、dz→dd 转发、dd 解构）")
+    if src.count("piIsNew:!e})") != 1:
+        raise PatchError("自检失败：P17 piIsNew 传递异常")
+    if src.count("children:[piIsNew?") != 1:
+        raise PatchError("自检失败：P17 目录行 piIsNew 守卫异常")
+    if (src.count("[piOpen,piSetOpen]=(0,r.useState)(!1)") != 1
+            or src.count("V(piRef,piOpen,function(){piSetOpen(!1)})") != 1):
+        raise PatchError("自检失败：P17 弹窗状态/点击外部关闭异常")
+    for _mk in ('children:"最近目录"', 'children:"使用默认目录"', 'children:"选择其他目录…"', 'title:"切换目录"'):
+        if src.count(_mk) != 1:
+            raise PatchError(f"自检失败：P17 弹窗标记异常：{_mk} × {src.count(_mk)}")
     # 七调：+ 号改小改细（十字收进 2.5..9.5 为原版不存在的唯一标记；
     #   ⚠ strokeWidth:"1.6" 原版已有 2 处，不能当标记）
     if src.count('{x1:"6",y1:"2.5",x2:"6",y2:"9.5"}') != 1:

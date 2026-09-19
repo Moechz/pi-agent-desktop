@@ -494,6 +494,44 @@ P15 行高踩过此坑）；已在自检里加 26 个类的存在性断言（转
 并改用 `d("sidebar.customPath")` 即可（en 值已是 Custom path…）。
 **自检标记**：三串计数（见下“图标化”）；且 `H(e,u)`×0（旧路径渲染已消失）。
 
+## 4g. P17 — 新会话输入框左上角目录名 + ▾ 切换目录弹窗（用户 2026-09-21）
+
+**需求**：点“+ 新会话”后，输入框（composer）左上角显示**当前目录名称**，名称右侧一个箭头；
+点箭头弹**弹窗**选择/切换目录（影响这条新会话将在哪个目录跑）。
+
+**三层链路**（关键：目录切换必须能改 shell 状态，否则新会话仍会在旧目录创建）：
+```
+shell（AppShell）— dz 调用 —→ dz（chat 区）— dd 调用 —→ dd（composer, forwardRef）
+1) shell 的 dz 调用追加：
+   piOnCwdChange: ej   ← ★复用侧边栏“+ 新会话”同一处理函数！
+              ej(id,cwd) 会 p(null)[清会话] + m(cwd)[设新会话目录] + e_(cwd)[切项目目录]
+              + v(x=>x+1)[刷新]，所以传 dir 即可完整完成“在新目录开新会话”
+   piDirOptions: 自包含 IIFE 从 sessions 算最近目录前 5（按 modified 降序去重）——
+              为什么不直接调模块级 G(J)？靠子捕获的变量名才可靠；且少一个函数依赖。
+2) dz 解构接收（piOnCwdChange/piDirOptions）并转发给 dd，额外传 piIsNew:!e
+   （e = session；仅新会话态显目录行）
+3) dd：构解构接收 + 加 [piOpen,piSetOpen]=useState(!1) + piRef + 点击外部关闭
+   V(piRef,piOpen,...)，在 maxWidth:820 容器首位渲染 children:[piIsNew?HDR:null,...]
+```
+
+**目录行 UI**（全内联样式，避开 Tailwind 死类）：
+`📁（lucide 闭合文件夹 13px） + 目录名（末段，font-mono，title=完整路径） + ▾（10px）`。
+未选目录时显“未选择目录”。
+**▾ 弹窗**（向上展开，`bottom:calc(100% + 6px)`，背景 `var(--bg)` 不透明）：
+最近目录列表（当前项打勾 accent）/ 分割线 / 使用默认目录（POST /api/default-cwd）/ 选择其他目录…
+（自包含：`window.electronAPI.selectDirectory()` 完底 `POST /api/select-directory`）。
+
+⚠ **不能调模块级 `W()` / `G()`**：dd 作用域里这两个名字已被同名的 useState 局部变量遮蔽！
+（W = setCursorPos，G = 某 state setter）——所以目录选择器写成自包含 IIFE。
+
+**自检标记**：`piOnCwdChange:`×4（shell→dz 传参、dz 解构、dz→dd 转发、dd 解构）、
+`piIsNew:!e})`×1、`children:[piIsNew?`×1、`[piOpen,piSetOpen]=(0,r.useState)(!1)`×1、
+`V(piRef,piOpen,function(){piSetOpen(!1)})`×1、弹窗三文案各×1。
+⚠ P16 自检里“闭合文件夹路径”计数已由 2 改 3（P17 又用了一次这个图标）。
+⚠ 锚点坑记录：`(0,M.useI18n)()` 中 `useI18n` 后面是 **`)`**（分组括号）不是 `(`——
+原写成 `\.useI18n\(\)` 导致 0 命中；另 `,[C,L]=useState("")` 类锚点在全文件撞 15 次，
+改用 `},R){let{t:_}=(0,M.useI18n)(),` 才唯一。
+
 ## 5. 验证流程（每次适配后必做）
 
 ```bash
