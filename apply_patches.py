@@ -1106,11 +1106,11 @@ def main():
         raise PatchError(f"[P15] meta 行锚点命中 {len(ms15m)} 次")
     src = src[: ms15m[0].start()] + "null" + src[ms15m[0].end():]
     # ③ 行高压缩：SessionItem 容器固定高 h-[52px]（原为标题+meta 两行设计）→
-    #    40px（meta 已删只剩标题行；全 chunk 唯一，含删除确认态共用容器）
+    #    50px（meta 已删只剩标题行；40 试过太密，50 为平衡值；全 chunk 唯一）
     old_h = "h-[52px] flex items-center pr-2"
     if src.count(old_h) != 1:
         raise PatchError(f"[P15] 行高锚点命中 {src.count(old_h)} 次")
-    src = src.replace(old_h, "h-[40px] flex items-center pr-2")
+    src = src.replace(old_h, "h-[50px] flex items-center pr-2")
 
     # ---------- P3-3：状态圆点（SessionItem 标题前） ----------
     pat_dot = r'\]\}\),\(0,(' + ID + r')\.jsxs\)\("div",\{className:"flex-1 min-w-0",children:\['

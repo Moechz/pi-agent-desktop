@@ -371,7 +371,7 @@ DSH_MARK 之后的尾部为当前版；旧尾部之后追加的 P8b 块会被丢
    （无灰点分支、无 transition；与 patch_dot_solid 迁移兼容——旧光晕串不存在时它自跳过）。
 4. 行高压缩：SessionItem 容器固定类 `h-[52px] flex items-center pr-2`（全 chunk 唯一，
    含删除确认态共用）→ `h-[40px]`——52px 是标题+meta 两行时代的留白，meta 删后只剩
-   一行标题，40px 紧凑（用户 2026-09-21 反馈“行间距太高/光标留行高太高”）。
+   一行标题，50px（40 太密，2026-09-21 二调；用户反馈“行间距太高/光标留行高太高”）。
 
 自检标记：`fontVariantNumeric:"tabular-nums"`×1 + `return mi+"m"`×1。
 
