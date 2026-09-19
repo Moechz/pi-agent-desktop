@@ -327,6 +327,53 @@ def patch_model_save_filter():
     return 0
 
 
+def patch_model_name_button():
+    """P12：输入框下方模型按钮显示当前模型名。
+    原按钮（ModelSelector 触发器）只有 32px 芯片图标，模型名只在 title 提示里。
+    改为：图标 + 模型名文字（fontSize:12，maxWidth:180 溢出省略），按钮由固定宽
+    32 改为自适应 padding。锚点：芯片 svg 顶针脚 x1:"9",y1:"1" + 尾针脚
+    x2:"4",y2:"14"})]})})（均全局唯一）；currentName 变量从窗口内 title:VAR 提取。
+    幂等：窗口内已含 maxWidth:180 则跳过。"""
+    chunk, src = find_chunk()
+    if 'whiteSpace:"nowrap",maxWidth:180,overflow:"hidden",textOverflow:"ellipsis"' in src:
+        print("ℹ️ [P12] 模型名已显示")
+        return 0
+    tail = 'x2:"4",y2:"14"})]})})'
+    if src.count(tail) != 1:
+        raise PatchError("[P12] svg 尾锚点命中异常")
+    # 芯片图形全文件复用 3 处，须用「尾锚+紧邻 dropdown」唯一组合定位本组件
+    t = src.find(tail)
+    if "visualViewport" not in src[t + len(tail):t + len(tail) + 300]:
+        raise PatchError("[P12] 尾锚后非 dropdown（定位错误）")
+    w0, w1 = max(0, t - 3000), t + len(tail)
+    win = src[w0:w1]
+    m = re.search(r"title:([A-Za-z_$][A-Za-z0-9_$]*),", win)
+    if not m:
+        raise PatchError("[P12] currentName 变量未定位")
+    var = m.group(1)
+    span = f'(0,n.jsx)("span",{{style:{{fontSize:12,whiteSpace:"nowrap",maxWidth:180,overflow:"hidden",textOverflow:"ellipsis"}},children:{var}}})'
+    t2 = win.find(tail)
+    # 窗口可能跨组件；须取尾锚之前最近的那个 svg（本按钮的）
+    a = win.rfind('children:(0,n.jsxs)("svg",', 0, t2)
+    if a < 0:
+        raise PatchError("[P12] children svg 锚点未命中")
+    win = win[:a + 9] + "[" + win[a + 9:]
+    t2 = win.find(tail)
+    win = win[: t2 + len(tail) - 2] + "," + span + "]" + win[t2 + len(tail) - 2:]
+    m2 = re.search(r"width:32,padding:0,", win)
+    if m2:
+        win = win.replace("width:32,padding:0,", 'gap:6,padding:"0 8px 0 9px",', 1)
+    else:
+        print("⚠️ [P12] 按钮 width:32 未命中（可能已自适应），跳过宽度调整")
+    src = src[:w0] + win + src[w1:]
+    tmp = chunk + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(src)
+    os.replace(tmp, chunk)
+    print(f"✅ [P12] 模型按钮已显示模型名（变量 {var}）")
+    return 0
+
+
 def patch_orb_expand():
     """P10b：状态球思考面板默认展开（真正的实时思考显示位置）。
     关键发现（2026-09-19）：ChatWindow 在把流式消息传给消息列表前，用
@@ -492,6 +539,8 @@ def main():
     patch_thinking_live()
     # P10b：状态球思考面板默认展开（实时思考的真实显示位置，P10 的正解）
     patch_orb_expand()
+    # P12：输入框下方模型按钮显示当前模型名
+    patch_model_name_button()
     # P11：模型配置保存前过滤空 id 模型（防 models.json 整体失效致供应商消失）
     patch_model_save_filter()
     chunk, src = find_chunk()
