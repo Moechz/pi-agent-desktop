@@ -75,6 +75,22 @@
 **踩坑**：①raw 字符串内正则须单反斜杠（`r"\\("`=匹配字面反斜杠，永不命中）；
 ②`(0,r.useState)(!1)` 的 SIG 若止于 `.useState)` 则漏掉调用括号 `(`，pattern 须为 `SIG\((\!1)\),`。
 
+## 2c. P11 — 模型配置保存前过滤空 id 模型（防供应商消失）
+
+**产品语义（2026-09-19 用户反馈）**：添加新供应商后原有供应商从模型菜单消失。
+**根因链**：ModelsConfig.addModel 会 append `{id:""}` 空白行 → handleSave 把 config
+原样 PUT → ModelConfig.load 用 TypeBox 校验（`id minLength:1`）失败 → **整个
+models.json 被丢弃** → 所有自定义供应商（zhipu）从运行时消失，只剩内置供应商
+（auth.json 有 key 的 deepseek）。数据层修复 = 手动删掉空条目即可恢复。
+
+**变换（1 处）**：handleSave 的 `body:JSON.stringify(VAR)` 包一层 IIFE，
+过滤 `providers[*].models` 中 id 为空的条目（其余原样保留）。
+实现于 `patch_model_save_filter()`：独立于 MARKER 幂等（注入标记 `m?.id?.trim()`）。
+
+**锚点坑**：①g1 吞了 stringify 开括号后，VAR 后还有 stringify 的闭合括号 `)`，
+第三组须 `(\)\}\)` 而非 `\}\)`（少一层永不命中）；②raw 字符串内正则必须
+单反斜杠（双反斜杠 = 匹配字面反斜杠，静默不命中）。
+
 ## 3. P2 — 输入框边框
 
 未聚焦态样式串 `"color-mix(in srgb, var(--border) 70%, transparent)"`（全 chunk 唯一）

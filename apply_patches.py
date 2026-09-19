@@ -286,6 +286,47 @@ def patch_dot_solid():
     return 0
 
 
+def patch_model_save_filter():
+    """P11：模型配置保存前过滤空 id 模型（防 models.json 整体失效）。
+    背景（2026-09-19 用户反馈）：添加模型供应商后原供应商从菜单消失。
+    根因链：ModelsConfig.addModel 会 append {id:""} 空白行 → handleSave 把 config
+    原样 PUT 到 /api/models-config → ModelConfig.load 用 TypeBox 校验（id minLength:1）
+    失败 → 整个 models.json 被丢弃 → 所有自定义供应商（如 zhipu）从运行时消失，
+    只剩内置供应商（auth.json 有 key 的 deepseek）。
+    本补丁：handleSave 里 JSON.stringify(config) 前包一层 IIFE，过滤掉
+    providers[*].models 中 id 为空的条目（其余字段原样保留）。
+    锚点：body:JSON.stringify(VAR)}),t=await e.json()（VAR 构建期变量名）。
+    注意：g1 吞了 stringify 开括号后，VAR 后还有 stringify 的闭合括号 )，
+    故第三组须为 (\)\}\) 而非 \}\)（少一层就永不命中）。
+    独立于 MARKER 幂等：锚点自消失，用注入标记 m?.id?.trim() 判已打。"""
+    chunk, src = find_chunk()
+    pat = re.compile(
+        r"(body:JSON\.stringify\()([A-Za-z_$][A-Za-z0-9_$]*)(\)\}\),t=await e\.json\(\))"
+    )
+    ms = list(pat.finditer(src))
+    if not ms:
+        if "m?.id?.trim()" in src:
+            print("ℹ️ [P11] 模型保存过滤已是补丁状态")
+            return 0
+        raise PatchError("[P11] 模型保存过滤锚点未命中")
+    if len(ms) != 1:
+        raise PatchError(f"[P11] 锚点命中 {len(ms)} 次")
+    g = ms[0]
+    v = g.group(2)
+    ii = (
+        "(()=>{let _z={..." + v + ",providers:Object.fromEntries(Object.entries(" + v
+        + ".providers??{}).map(([k,x])=>[k,{...x,models:(x.models??[]).filter(m=>m?.id?.trim())}]))};return _z})()"
+    )
+    repl = "body:JSON.stringify(" + ii + g.group(3)
+    src = src[: g.start()] + repl + src[g.end():]
+    tmp = chunk + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(src)
+    os.replace(tmp, chunk)
+    print(f"✅ [P11] 模型保存过滤已写入 {chunk}")
+    return 0
+
+
 def patch_thinking_live():
     """P10：思考面板默认展开（流式时直接看到推理内容）。
     背景（2026-09-19 用户澄清需求）：思考过程要「显示」——原应用思考折叠面板
@@ -396,6 +437,8 @@ def main():
     patch_p1_v3()
     # P10：思考面板默认展开（流式实时可见；fresh/已部署通吃，幂等）
     patch_thinking_live()
+    # P11：模型配置保存前过滤空 id 模型（防 models.json 整体失效致供应商消失）
+    patch_model_save_filter()
     chunk, src = find_chunk()
     if MARKER in src:
         print("已是补丁状态，跳过")
