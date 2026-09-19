@@ -3,7 +3,7 @@
 对 Pi Agent Desktop（`/Applications/Pi Agent Desktop.app`）所做的 **7 组 UI 定制补丁**的完整档案：
 补丁内容、技术原理、自动重打工具、原始文件备份。目的：**应用更新覆盖定制后能快速恢复**。
 
-> 最后验证时间：2026-09-17 · 适配版本：当前安装版（chunk `0wz_4dmun1la1.js` + CSS `0_d0l-y8ld00j.css`）
+> 最后验证时间：2026-09-20（回滚消防演练通过：打补丁→revert→与官方真原版逐字节一致）· 适配版本：当前安装版 v0.8.8（chunk `0wz_4dmun1la1.js` + CSS `0_d0l-y8ld00j.css`）
 
 ---
 
@@ -38,9 +38,38 @@ python3 ~/.pi-ui-patches/apply_patches.py
 # 手动触发一次看护
 bash    ~/.pi-ui-patches/watch_and_apply.sh
 
-# 回滚全部定制（恢复官方原版）
+# 体检（补丁在位/备份可信/语法/看护状态，一眼看清）
+bash    ~/.pi-ui-patches/status.sh
+
+# 回滚全部定制（恢复官方原版；版本守卫+回滚前快照+sha/node双校验+自动冻结看护）
 bash    ~/.pi-ui-patches/revert.sh
 # 然后完全退出 Pi Agent Desktop（Cmd+Q）重新打开
+
+# 只冻结看护不回滚（防止 1 小时内被自动打回；动手改 UI 前先跑这个）
+bash    ~/.pi-ui-patches/patch-off.sh        # --revert = 冻结+回滚
+# 解冻 + 立即重打补丁
+bash    ~/.pi-ui-patches/patch-on.sh
+
+# 备份采集（应用升级到新版本后跑一次）
+bash    ~/.pi-ui-patches/backup-app.sh --from-dmg ~/Downloads/Pi-Agent-Desktop-<版本>-mac-universal.dmg
+bash    ~/.pi-ui-patches/backup-app.sh --snapshot     # 改补丁前拍快照（保留最近 10 份）
+```
+
+### 白屏 / 前端加载不出来时（Terminal.app 救援，不依赖 App 界面）
+
+补丁只写 `.next/static/chunks/*.js|css`、`components/*`（P11/P14 另涉 node_modules 内
+@earendil-works 包），**主进程 app.asar / Electron 二进制从不被触碰**，最坏也只是渲染层白屏。
+救援顺序（全部可在「终端.app」里完成）：
+
+```bash
+# ① 还原官方文件（带版本守卫，升级后不会拿旧备份硬塞）
+bash ~/.pi-ui-patches/revert.sh
+# ② 清渲染缓存
+rm -rf "$HOME/Library/Application Support/@chasen-liao/pi-agent-desktop/Cache/Cache_Data" \
+       "$HOME/Library/Application Support/@chasen-liao/pi-agent-desktop/Code Cache"/*
+# ③ Cmd+Q 完全退出后重开；仍不行 → ④ 终极：官方 DMG 覆盖重装（必定恢复，用户数据不受影响）
+hdiutil attach ~/.pi-ui-patches/backup/installer/Pi-Agent-Desktop-0.8.8-mac-universal.dmg
+# 挂载后把 App 拖进 /Applications 覆盖
 ```
 
 ### 验证补丁是否在位
@@ -59,13 +88,21 @@ pi-agent-UI-change-memo/
 ├── apply_patches.py     # ★ 语义锚点自动重打器（归档副本；运行时在 ~/.pi-ui-patches/）
 ├── watch_and_apply.sh   # 看护脚本（归档副本；launchd 实际运行 ~/.pi-ui-patches/ 下的那份）
 ├── com.user.pi-ui-patch.plist  # launchd 配置（归档副本；已安装于 ~/Library/LaunchAgents/）
-├── revert.sh            # 一键回滚全部补丁（归档副本）
-├── backup/              # 当前版本的原始文件备份（用于精确回滚）
+├── revert.sh            # 一键回滚（硬化版：版本守卫/回滚前快照/fail-soft/sha+node校验/自动冻结）
+├── backup-app.sh        # 备份采集器：--from-dmg 固化真原版+MANIFEST；--snapshot 拍快照
+├── status.sh            # 体检报告（补丁/备份可信度/语法/看护/快照）
+├── patch-off.sh         # 冻结看护（FROZEN 哨兵）；--revert = 冻结+回滚
+├── patch-on.sh          # 解冻 + 立即重打补丁 + 清缓存
+├── backup/              # 项目侧镜像（git 管历史）：*.orig + pristine-<版本>/（DMG 提取的真原版）
 │   ├── 0wz_4dmun1la1.js.orig        # 编译 chunk 原始版（回滚目标）
 │   ├── 0_d0l-y8ld00j.css.orig       # 主题 CSS 原始版（P6 回滚目标）
-│   ├── *.patchNonly                  # 各阶段中间态（调试参考）
-│   └── *.tsx.orig / helpers.ts.orig  # 源码原始版
+│   ├── pristine-0.8.8/              # 官方 DMG 真原版（gold，sha256 权威基准）
+│   └── installer-*.dmg              # 官方安装包归档（gitignore，体积大）
 └── logs/                # （看护日志实际在 ~/.pi-ui-patches/watch.log）
+
+**运行时备份布局**（`~/.pi-ui-patches/backup/`，launchd/脚本实际使用的一份）：
+`pristine-0.8.8/`（真原版）+ `installer/`（DMG）+ `MANIFEST.txt`（版本+逐文件 sha256）
++ `*.orig`。`snapshots/` 存补丁面快照；`FROZEN` 存在 = 看护冻结。
 ```
 
 ### 运行时 vs 归档（重要）
