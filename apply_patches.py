@@ -329,54 +329,77 @@ def patch_model_save_filter():
 
 def patch_deepseek_catalog():
     """P14：DeepSeek 模型目录只留 deepseek-flash（V4.1）。
-    背景（2026-09-19）：官方 API /models 只有 deepseek-flash 与 deepseek-v4-pro，
+    背景（2026-09-19）：官方 API /models 只有 deepseek-flash（V4.1）与 deepseek-v4-pro，
     v4-flash 已下线；用户要求菜单只留 V4.1 Flash。models.json 是 upsert 语义
-    （只能追加/覆盖，不能删内置模型），故直接改 pi 包 bundle chunk 的
-    deepseek_default 目录：删 v4-pro 条目、v4-flash 改名 deepseek-flash。
-    保留原条目全部字段（cost 为 v4-flash 近似值，仅影响用量估算显示）。
-    新补丁目标：node_modules/@earendil-works/*/dist/bundle/chunks/*.js
-    （按内容定位 `var deepseek_default=`，跨文件名/版本）。
-    服务端模块常驻内存：需重启应用生效。幂等：段内无 v4-flash 即跳过。"""
-    files = sorted(
-        glob.glob(
-            os.path.join(
-                STANDALONE,
-                "node_modules/@earendil-works/*/dist/bundle/chunks/*.js",
+    （只能追加/覆盖，不能删内置模型），故直接改目录文件。
+    ⚠ 目录共有 4 处副本（首次部署只改了外层 node_modules 那份而未生效）：
+      A. node_modules/@earendil-works/*/dist/bundle/chunks/*.js 中的 deepseek_default
+      B. .next/node_modules/@earendil-works/*<hash>/dist/bundle/chunks/*.js（服务端真身，
+         Next standalone 把 node_modules 复制进 .next，包名带哈希后缀）
+      C. node_modules/@earendil-works/pi-ai/dist/providers/data/deepseek.json（数据源）
+      D. .next/node_modules/@earendil-works/pi-ai-*<hash>/dist/providers/data/deepseek.json
+    JS：删 v4-pro 条目、v4-flash 改名（node --check 校验，含动态 import 勿用 JSC 法）。
+    JSON：重写为仅 deepseek-flash 条目。
+    服务端 require 缓存常驻：需重启应用生效。幂等：各文件内无 v4-flash 即跳过。"""
+    import json as _json
+
+    def roots():
+        for sub in ("node_modules", os.path.join(".next", "node_modules")):
+            yield os.path.join(STANDALONE, sub)
+
+    # --- JS bundle chunks（A+B）---
+    js_done = 0
+    for root in roots():
+        for f in sorted(glob.glob(os.path.join(root, "@earendil-works/*/dist/bundle/chunks/*.js"))):
+            try:
+                src = open(f, encoding="utf-8").read()
+            except OSError:
+                continue
+            a = src.find("var deepseek_default=")
+            if a < 0:
+                continue
+            b = src.find(";", a)
+            seg = src[a : b + 1]
+            if "deepseek-v4-flash" not in seg and "deepseek-flash" in seg:
+                continue
+            idx = seg.find(',"deepseek-v4-pro":')
+            if idx < 0:
+                raise PatchError(f"[P14] {os.path.basename(f)} 目录结构异常")
+            new_seg = seg[:idx] + "}};"
+            new_seg = new_seg.replace('"deepseek-v4-flash"', '"deepseek-flash"').replace(
+                "DeepSeek V4 Flash", "DeepSeek V4.1 Flash"
             )
-        )
-    )
-    target = None
-    for f in files:
-        try:
-            data = open(f, encoding="utf-8").read()
-        except OSError:
-            continue
-        if "var deepseek_default=" in data:
-            target = f
-            break
-    if target is None:
-        print("ℹ️ [P14] 未找到 deepseek 目录 chunk（测试目录无 node_modules），跳过")
-        return 0
-    src = open(target, encoding="utf-8").read()
-    a = src.find("var deepseek_default=")
-    b = src.find(";", a)
-    seg = src[a : b + 1]
-    if "deepseek-v4-flash" not in seg and "deepseek-flash" in seg:
-        print("ℹ️ [P14] deepseek 目录已是仅 V4.1 Flash")
-        return 0
-    idx = seg.find(',"deepseek-v4-pro":')
-    if idx < 0 or "deepseek-v4-flash" not in seg:
-        raise PatchError("[P14] deepseek 目录结构异常")
-    new_seg = seg[:idx] + "}};"
-    new_seg = new_seg.replace('"deepseek-v4-flash"', '"deepseek-flash"').replace(
-        "DeepSeek V4 Flash", "DeepSeek V4.1 Flash"
-    )
-    src = src[:a] + new_seg + src[b + 1 :]
-    tmp = target + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        f.write(src)
-    os.replace(tmp, target)
-    print(f"✅ [P14] deepseek 目录仅留 V4.1 Flash，已写入 {os.path.basename(target)}")
+            src = src[:a] + new_seg + src[b + 1 :]
+            tmp = f + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as fh:
+                fh.write(src)
+            os.replace(tmp, f)
+            js_done += 1
+            print(f"✅ [P14] JS 目录已改（仅 V4.1 Flash）: {f.split('standalone/')[-1][:90]}")
+    # --- JSON 数据文件（C+D）---
+    json_done = 0
+    for root in roots():
+        for f in sorted(glob.glob(os.path.join(root, "@earendil-works/pi-ai*/dist/providers/data/deepseek.json"))):
+            try:
+                data = _json.load(open(f, encoding="utf-8"))
+            except OSError:
+                continue
+            changed = False
+            for api, models in data.items():
+                if not isinstance(models, dict) or "deepseek-v4-flash" not in models:
+                    continue
+                flash = dict(models["deepseek-v4-flash"])
+                flash["id"] = "deepseek-flash"
+                flash["name"] = "DeepSeek V4.1 Flash"
+                data[api] = {"deepseek-flash": flash}
+                changed = True
+            if changed:
+                with open(f, "w", encoding="utf-8") as fh:
+                    _json.dump(data, fh, ensure_ascii=False, indent=0, separators=(",", ":"))
+                json_done += 1
+                print(f"✅ [P14] JSON 目录已改（仅 V4.1 Flash）: {f.split('standalone/')[-1][:90]}")
+    if js_done == 0 and json_done == 0:
+        print("ℹ️ [P14] deepseek 目录已是仅 V4.1 Flash（或测试环境无目录文件）")
     return 0
 
 

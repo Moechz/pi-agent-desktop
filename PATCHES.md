@@ -133,11 +133,16 @@ Balance」即现；切回 GLM 恢复。用户原症状（切 deepseek 无反应�
 故改 pi 包 bundle chunk 的 `deepseek_default` 目录：删 v4-pro 条目、v4-flash 改名
 deepseek-flash（保留原字段；cost 为 v4-flash 近似值，仅影响用量估算）。
 
-**新补丁目标**：`node_modules/@earendil-works/*/dist/bundle/chunks/*.js`（按内容
-`var deepseek_default=` 定位，跨文件名/包版本）。**服务端模块常驻内存，需重启应用
-生效**（UI chunk 补丁也是重启生效，一致）。语法校验用 `node --check`（该文件含动态
-`import(`，osascript JSC 法不适用）。幂等：段内无 v4-flash 即跳过；无 node_modules
-的测试目录跳过不报错。
+**⚠ 目录共有 4 处副本，漏改即不生效**（首次部署只改外层 JS 而白改）：
+  A. `node_modules/@earendil-works/*/dist/bundle/chunks/*.js`（deepseek_default 段）
+  B. **`.next/node_modules/@earendil-works/*<hash>/dist/bundle/chunks/*.js`——服务端真身**
+     （Next standalone 把 node_modules 复制进 .next，包名带哈希后缀，如
+     pi-coding-agent-4cdde81112ef3dc5）
+  C. `node_modules/@earendil-works/pi-ai/dist/providers/data/deepseek.json`（数据源）
+  D. `.next/node_modules/@earendil-works/pi-ai-*<hash>/dist/providers/data/deepseek.json`
+P14 对 node_modules 与 .next/node_modules 两个根都扫，JS 段手术 + JSON 重写。
+**服务端 require 缓存常驻：需重启应用生效**。语法校验用 `node --check`（含动态
+`import(`，osascript JSC 法不适用）。幂等：各文件无 v4-flash 即跳过。
 
 ## 3. P2 — 输入框边框
 
