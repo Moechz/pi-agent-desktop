@@ -1261,8 +1261,8 @@ def main():
         "transition-[background-color,border-color,color,transform] duration-150"
     )
     NEWSESS_BASE = (
-        "flex h-7 w-7 shrink-0 items-center justify-center p-0 rounded-control border "
-        "bg-chrome-button-bg border-border "
+        "flex h-7 shrink-0 items-center justify-center gap-1 rounded-control border px-2 "
+        "text-[13px] font-medium tracking-normal bg-chrome-button-bg border-border "
         "transition-[background-color,border-color,color,transform] duration-150"
     )
     if newsess.count('style:{background:"var(--success-bg)"') != 1:
@@ -1287,8 +1287,14 @@ def main():
     if refresh.count("duration-250") != 1:
         raise PatchError("[P16] 刷新按钮时长锚点异常")
     refresh = refresh.replace("duration-250", "duration-150")
+    # 新会话钮加文字标签“新会话”（图标+文字，宽度自适应；样式仍与其余三钮同底）
+    if not newsess.endswith("]})"):
+        raise PatchError(f"[P16] 新会话按钮尾部结构异常：{newsess[-12:]!r}")
+    newsess = newsess[:-3] + ',(0,' + jx + ')("span",{children:"新会话"})]})'
+    # 行容器：再下移一行 → 内联 marginTop:24（⚠ mt-4/5/6 及 mt-2.5 在本构建 CSS 里均不存在，
+    #   mt-[24px] 也是死类，故用内联样式；左→右：新会话→新目录→▾→刷新，右对齐）
     new_bar = (
-        f'(0,{jxs})("div",{{className:"flex items-center gap-1 mt-3 justify-end",children:['
+        f'(0,{jxs})("div",{{className:"flex items-center gap-1 justify-end",style:{{marginTop:24}},children:['
         f'{newsess},'
         f'(0,{jx})("button",{{onClick:function(){{return v()}},title:"新建目录（选择本地文件夹作为工作目录）",'
         f'className:"{UNI}",style:{{opacity:f?0.6:1}},children:{PLUS_SVG}}}),'
@@ -1325,8 +1331,10 @@ def main():
     _i4 = src.find("sidebar-refresh-button")
     if not (0 <= _i1 < _i2 < _i3 < _i4):
         raise PatchError("自检失败：P16 按钮顺序异常（应 新会话→新目录→▾→刷新）")
-    if src.count('className:"flex items-center gap-1 mt-3 justify-end"') != 1:
-        raise PatchError("自检失败：P16 按钮行容器异常（mt-3 下移 / justify-end 右对齐）")
+    if src.count('className:"flex items-center gap-1 justify-end",style:{marginTop:24}') != 1:
+        raise PatchError("自检失败：P16 按钮行容器异常（内联下移 24px / justify-end 右对齐）")
+    if src.count('("span",{children:"新会话"})') != 1:
+        raise PatchError("自检失败：P16 新会话文字标签异常")
     if "ml-auto flex gap-1" in src:
         raise PatchError("自检失败：P16 旧的按钮组容器未移除")
     if not re.search(r'sidebar-title-row flex items-center justify-between mb-2\.5",children:\[[^\]]{0,160}?,null\]', src):
@@ -1339,8 +1347,8 @@ def main():
                "bg-chrome-button-bg", "hover:bg-chrome-button-hover", "hover:text-accent",
                "hover:border-focus-ring", "cursor-not-allowed", "cursor-pointer",
                "transition-[background-color,border-color,color,transform]", "duration-150",
-               "shrink-0", "justify-center", "justify-end", "w-7", "h-7", "p-0",
-               "mt-3", "text-text-muted"):
+               "shrink-0", "justify-center", "justify-end", "w-7", "h-7", "p-0", "px-2",
+               "text-[13px]", "font-medium", "tracking-normal", "text-text-muted"):
         _esc = re.sub(r"([\[\]\.:/\+,%#()])", r"\\\1", _c)
         if "." + _esc not in _css_text:
             raise PatchError(f"自检失败：P16 所用 Tailwind 类在编译 CSS 中不存在：{_c}")

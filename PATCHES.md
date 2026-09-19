@@ -433,6 +433,15 @@ children:e?H(e,u):l&&!c.current?"":d("sidebar.selectProject")})})`
   （⚠ `.self-stretch` 类在本构建 CSS 中不存在；且显式 height 会压过 stretch——
   行高由主钮 `py-1.5`+13px 内容决定）。
 
+**六调（用户 2026-09-21）：再下移一行 + 新会话带文字**
+- 整行再下移：因 `mt-2.5/4/5/6` 在本构建 CSS 里**均不存在**（只有 mt-1/2/3），
+  改用**内联 `style:{marginTop:24}`**（不去碰死类；想调直接改这个数字）。
+- 「新会话」钮内容 → 图标 + 文字 **“新会话”**：去掉 `w-7 p-0`，改 `px-2 gap-1 text-[13px]
+  font-medium tracking-normal`（⚠ `text-[12px]` 是本构建**死类**，用 13px）；
+  实现 = 在摘出的按钮尾部 `]})` 前插 `,(0,n.jsx)("span",{children:"新会话"})`；
+  其余三钮仍 `h-7 w-7` 方形。
+- 自检：`("span",{children:"新会话"})`×1、行容器带 `style:{marginTop:24}`×1。
+
 **五调（用户 2026-09-21）：样式统一 + 排序 + 下移**
 - **四钮统一样式**：均 `h-7 w-7 p-0` 方形，底样式改用应用自带的 chrome 钮风格
   （`bg-chrome-button-bg border-border text-text-muted` + `hover:bg-chrome-button-hover
