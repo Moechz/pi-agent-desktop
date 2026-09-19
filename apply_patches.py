@@ -286,6 +286,41 @@ def patch_dot_solid():
     return 0
 
 
+def patch_thinking_live():
+    """P10：思考面板默认展开（流式时直接看到推理内容）。
+    背景（2026-09-19 用户澄清需求）：思考过程要「显示」——原应用思考折叠面板
+    useState(false) 默认收起，每条消息都需手动点开。改为默认展开：
+    - 流式中的消息：思考内容实时可见
+    - 完成态：思考块被 P1 整体隐藏，不受影响
+    锚点：c3 组件（block+duration 签名 + useI18n 后首个 useState(!1)）。
+    注意：raw 字符串内正则用单反斜杠（双反斜杠=匹配字面反斜杠，首版即栽在这）。
+    独立于 MARKER 幂等：useState(!0) 后闭式锚点自消失。"""
+    chunk, src = find_chunk()
+    SIG = (r"function [A-Za-z_$][A-Za-z0-9_$]*"
+           r"\(\{block:[A-Za-z_$][A-Za-z0-9_$]*,duration:[A-Za-z_$][A-Za-z0-9_$]*\}\)"
+           r"\{let\{t:[A-Za-z_$][A-Za-z0-9_$]*\}=\(0,[A-Za-z_$][A-Za-z0-9_$]*\.useI18n\)\(\),"
+           r"\[[A-Za-z_$][A-Za-z0-9_$]*,[A-Za-z_$][A-Za-z0-9_$]*\]=\(0,[A-Za-z_$][A-Za-z0-9_$]*\.useState\)")
+    # (0,r.useState)(!1)：SIG 止于 .useState)，其后还有调用括号 (!1)
+    pat = re.compile("(" + SIG + r")\((\!1)\),")
+    pat_open = re.compile(SIG + r"\(\!0\),")
+    ms = list(pat.finditer(src))
+    if not ms:
+        if pat_open.search(src):
+            print("ℹ️ [P10] 思考面板已默认展开")
+            return 0
+        raise PatchError("[P10] 思考面板锚点未命中")
+    if len(ms) != 1:
+        raise PatchError(f"[P10] 锚点命中 {len(ms)} 次")
+    m = ms[0]
+    src = src[: m.start(2)] + "!0" + src[m.end(2):]
+    tmp = chunk + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(src)
+    os.replace(tmp, chunk)
+    print(f"✅ [P10] 思考面板默认展开已写入 {chunk}")
+    return 0
+
+
 def patch_p1_v3():
     """P1 v3 迁移：列表级规则去 agentRunning 门控 + cQ 调用去 isStreaming 注入。
     背景（2026-09-19 用户反馈）：v2 用会话级 agentRunning 门控整个历史，
@@ -359,6 +394,8 @@ def main():
     patch_dot_solid()
     # P1 v3 迁移：轮次级隐藏语义（去 agentRunning 门控）
     patch_p1_v3()
+    # P10：思考面板默认展开（流式实时可见；fresh/已部署通吃，幂等）
+    patch_thinking_live()
     chunk, src = find_chunk()
     if MARKER in src:
         print("已是补丁状态，跳过")
