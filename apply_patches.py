@@ -32,7 +32,7 @@ STANDALONE = os.environ.get(
 )
 MARKER = "__piSM"  # P3 轮询器标记，存在即认为已打补丁
 DSH_MARK = "/*__piDSH*/"  # P8 全局 DSH 主题追加标记
-PI_ROW_H = 100  # P15 会话行高（px）。⚠ h-[Npx] 是 Tailwind 编译期类——编译 CSS 只含
+PI_ROW_H = 40  # P15 会话行高（px）。⚠ h-[Npx] 是 Tailwind 编译期类——编译 CSS 只含
 # 构建时用过的规则（本构建仅 .h-\[52px\]），改 className 字符串造不出新高度类，
 # 必须换自定义类 __piRowH 并由 patch_css() 注入规则；调行高只改这个常量。
 DSH2_MARK = "/*__piDSH2*/"  # P8b 字号阶梯追加标记
