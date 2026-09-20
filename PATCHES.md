@@ -9,7 +9,7 @@
   **改 .tsx 源码不影响运行**（本项目早期改过的源码仅作参考镜像）。
 - chunk 按内容哈希命名，每次构建文件名和内部压缩变量名（如 `c7`、`y`、`D`）都会变。
 - 渲染进程从内嵌 server（端口 30141）拉 chunk，带 `Cache-Control: immutable` 缓存；
-  每次改文件后要清 `~/Library/Application Support/@chasen-liao/pi-agent-desktop/Cache/Cache_Data` 和 `Code Cache`。
+  每次改文件后要清渲染缓存（revert.sh / patch-on.sh 已自动做）。
 - 当前版本的关键编译标识符（`0wz_4dmun1la1.js`）：
   - `X`=SessionSidebar 组件（props: selectedCwd=`p`, onCwdChange=`g`, sessions state=`y`, loadSessions=`D`…）
   - `Y`=SessionTreeItem、`K`=SessionItem（prop `session`=`e`）
@@ -505,14 +505,20 @@ shell（AppShell）— dz 调用 —→ dz（chat 区）— dd 调用 —→ dd�
 1) shell 的 dz 调用追加：
    piOnCwdChange: ej   ← ★复用侧边栏“+ 新会话”同一处理函数！
               ej(id,cwd) 会 p(null)[清会话] + m(cwd)[设新会话目录] + e_(cwd)[切项目目录]
-              + v(x=>x+1)[刷新]，所以传 dir 即可完整完成“在新目录开新会话”
-   piDirOptions: 自包含 IIFE 从 sessions 算最近目录前 5（按 modified 降序去重）——
-              为什么不直接调模块级 G(J)？靠子捕获的变量名才可靠；且少一个函数依赖。
-2) dz 解构接收（piOnCwdChange/piDirOptions）并转发给 dd，额外传 piIsNew:!e
+              + v(x=>x+1)[刷新]；★目录在第 2 参（首参 id 未用，传 null）
+2) dz 解构接收（piOnCwdChange）并转发给 dd，额外传 piIsNew:!e
    （e = session；仅新会话态显目录行）
-3) dd：构解构接收 + 加 [piOpen,piSetOpen]=useState(!1) + piRef + 点击外部关闭
+3) dd：解构接收 + 加 [piOpen,piSetOpen] / [piDirs,piSetDirs] state + piRef + 点击外部关闭
    V(piRef,piOpen,...)，在 maxWidth:820 容器首位渲染 children:[piIsNew?HDR:null,...]
 ```
+
+**最近目录数据源（v2 重设计）**：dd 弹窗打开时自 fetch `/api/sessions`（d.sessions
+→ 按 cwd 去重取 modified 最新 → 降序前 5 → piSetDirs）。
+⚠ 原设计想在 shell 里用 IIFE 从“sessions”算再传下去——双重错误：
+  a) 锚点选错：`eH=J.find(e=>e.id===ee)` 的 J 其实是 **fileTabs**（文件标签页无 .cwd，
+     永远过滤空 → 「暂无记录」）；
+  b) AppShell 里根本没有 sessions 数组（会话列表是侧边栏 X 组件自己 fetch 的）。
+自 fetch 与侧边栏 ▾ 下拉同源且每次打开都新鲜，代价 ~50ms。
 
 **目录行 UI**（全内联样式，避开 Tailwind 死类）：
 `📁（lucide 闭合文件夹 13px） + 目录名（末段，font-mono，title=完整路径） + ▾（10px）`。
@@ -526,11 +532,17 @@ shell（AppShell）— dz 调用 —→ dz（chat 区）— dd 调用 —→ dd�
 
 **自检标记**：`piOnCwdChange:`×4（shell→dz 传参、dz 解构、dz→dd 转发、dd 解构）、
 `piIsNew:!e})`×1、`children:[piIsNew?`×1、`[piOpen,piSetOpen]=(0,r.useState)(!1)`×1、
-`V(piRef,piOpen,function(){piSetOpen(!1)})`×1、弹窗三文案各×1。
+`V(piRef,piOpen,function(){piSetOpen(!1)})`×1、`piOnCwd(null,`×3、
+`[piDirs,piSetDirs]=(0,r.useState)([])`×1、`piSetDirs(a.slice(0,5))`×1、
+`piDirOptions`×0（必须无残留）、弹窗三文案各×1。
 ⚠ P16 自检里“闭合文件夹路径”计数已由 2 改 3（P17 又用了一次这个图标）。
 ⚠ 锚点坑记录：`(0,M.useI18n)()` 中 `useI18n` 后面是 **`)`**（分组括号）不是 `(`——
 原写成 `\.useI18n\(\)` 导致 0 命中；另 `,[C,L]=useState("")` 类锚点在全文件撞 15 次，
 改用 `},R){let{t:_}=(0,M.useI18n)(),` 才唯一。
+⚠ let 声明列表中注入 hook 调用必须赋值给变量（`piFx=(0,r.useEffect)(...)`），
+裸调用 `(0,r.useEffect)(...)` 会被当声明符解析 → JSC 报 parameter pattern 错。
+⚠ 换已有表达式包守卫（`piIsNew?HDR:null`）时，HDR 尾部原数组分隔逗号必须去掉，
+否则 `,:null` 三元语法错。
 
 ## 5. 验证流程（每次适配后必做）
 

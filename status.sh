@@ -7,7 +7,7 @@ set -u
 APP="${PI_STANDALONE:-/Applications/Pi Agent Desktop.app/Contents/Resources/standalone}"
 RT="${PI_UI_HOME:-$HOME/.pi-ui-patches}"
 BK="$RT/backup"
-CACHE="$HOME/Library/Application Support/@chasen-liao/pi-agent-desktop"
+CACHE="$(ls -d "$HOME/Library/Application Support/"@*pi-agent-desktop 2>/dev/null | head -1)"
 
 app_version() {
     [ -n "${PI_APP_VERSION:-}" ] && { echo "$PI_APP_VERSION"; return; }

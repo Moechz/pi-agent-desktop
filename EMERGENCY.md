@@ -36,7 +36,7 @@
 | `~/.pi-ui-patches/FROZEN` | 哨兵文件：存在 = 看护冻结（不会自动重打补丁） |
 | `~/Documents/projects/pi-agent-UI-change-memo/` | 归档项目（git + GitHub 远端） |
 | `~/.pi/agent/` | 用户数据本体：`sessions/`（会话）、`memory/`、`models.json` 等 |
-| `~/Library/Application Support/@chasen-liao/pi-agent-desktop` | App 数据目录（含缓存） |
+| `~/Library/Application Support/@<上游bundle-id>/pi-agent-desktop` | App 数据目录（实际路径见各脚本 CACHE 常量） |
 | `~/.pi/agent/bin/node` | node 二进制（本机无系统 node，语法校验用它） |
 
 配套脚本（都在 `~/.pi-ui-patches/`，项目里另有归档副本）：
@@ -116,7 +116,7 @@ bash ~/.pi-ui-patches/user-data-backup.sh --restore ~/.pi-ui-patches/userdata/us
 **首选：一条命令预检**（挂新 DMG→沙盒试打→逐组报告，不碰真 App）：
 
 ```bash
-# 新 DMG 从 github.com/Chasen-Liao/pi-agent-desktop Releases 下载
+# 新 DMG 从 官方 GitHub Releases 下载（owner/repo 用 cat "/Applications/Pi Agent Desktop.app/Contents/Resources/app-update.yml" 查得）
 # （本机直连 443 不通：浏览器下，或 curl -x http://127.0.0.1:7890 -L -o）
 bash ~/.pi-ui-patches/precheck-update.sh ~/Downloads/Pi-Agent-Desktop-<新版本>-mac-universal.dmg --adopt
 # ✅ 全部命中 → 放心更新 App，看护最迟 1 小时自动重打（或手动 patch-on.sh）
@@ -126,7 +126,7 @@ bash ~/.pi-ui-patches/precheck-update.sh ~/Downloads/Pi-Agent-Desktop-<新版本
 手动等价流程（precheck 内部就是这些，供理解/排查）：
 
 ```bash
-# 1) 拿到新版官方 DMG（github.com/Chasen-Liao/pi-agent-desktop 的 releases；
+# 1) 拿到新版官方 DMG（官方 GitHub releases，owner/repo 用 cat "/Applications/Pi Agent Desktop.app/Contents/Resources/app-update.yml" 查得；
 #    本机直连 github.com 443 不通，走代理：curl -x http://127.0.0.1:7890 -L -o ... 或浏览器下载）
 # 2) 固化新版本备份（真原版 + MANIFEST + 归档 DMG）
 bash ~/.pi-ui-patches/backup-app.sh --from-dmg ~/Downloads/Pi-Agent-Desktop-<新版本>-mac-universal.dmg

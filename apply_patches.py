@@ -1329,38 +1329,31 @@ def main():
     if not m_ej2:
         raise PatchError("[P17] ej（新会话处理函数）锚点未命中")
     EJ = m_ej2.group("ej")
-    m_sess = re.search(r'(?P<eH>' + ID + r')=(?P<J>' + ID + r')\.find\(e=>e\.id===' + ID + r'\)\?\?null', src)
-    if not m_sess:
-        raise PatchError("[P17] sessions 数组锚点未命中")
-    SESS = m_sess.group("J")
-    # 最近目录（自包含：按 modified 降序去重取前 5）
-    dirs_expr = (
-        '(function(s){var m={},i,c,t;for(i=0;i<s.length;i++){c=s[i]&&s[i].cwd;if(!c)continue;'
-        't=s[i].modified||"";if(!m[c]||t>m[c])m[c]=t}var a=Object.keys(m);'
-        'a.sort(function(x,y){return m[y].localeCompare(m[x])});return a.slice(0,5)})((' + SESS + '||[]))'
-    )
+    # ⚠ 勿在 AppShell 里找 sessions——它没有！会话列表是侧边栏 X 自己 fetch 的；
+    #   曾误把 `eH=J.find(e=>e.id===ee)` 当 sessions（那其实是 fileTabs，无 .cwd → 永远空）。
+    #   最近目录改由 dd 弹窗打开时自 fetch /api/sessions（与侧边栏 ▾ 同源且更实时）。
     src = sub_once(
         src,
         r'onContextUsageChange:(?P<cuc>' + ID + r')\},(?P<key>' + ID + r')\)',
-        'onContextUsageChange:\\g<cuc>,piOnCwdChange:' + EJ + ',piDirOptions:' + dirs_expr + '},\\g<key>)',
+        'onContextUsageChange:\\g<cuc>,piOnCwdChange:' + EJ + '},\\g<key>)',
         "P17-shell",
     )
     src = sub_once(
         src,
         r'onContextUsageChange:(?P<cuc>' + ID + r')\}\)\{',
-        'onContextUsageChange:\\g<cuc>,piOnCwdChange:piOnCwd,piDirOptions:piDirs}){',
+        'onContextUsageChange:\\g<cuc>,piOnCwdChange:piOnCwd}){',
         "P17-dz-sig",
     )
     src = sub_once(
         src,
         r'onSoundToggle:(?P<ost>' + ID + r')\}\)',
-        'onSoundToggle:\\g<ost>,piOnCwdChange:piOnCwd,piDirOptions:piDirs,piIsNew:!e})',
+        'onSoundToggle:\\g<ost>,piOnCwdChange:piOnCwd,piIsNew:!e})',
         "P17-dz-fwd",
     )
     src = sub_once(
         src,
         r',onReorderFollowUps:(?P<nru>' + ID + r')\},(?P<R>' + ID + r')\)\{',
-        ',onReorderFollowUps:\\g<nru>,piOnCwdChange:piOnCwd,piDirOptions:piDirs,piIsNew:piIsNew},\\g<R>){',
+        ',onReorderFollowUps:\\g<nru>,piOnCwdChange:piOnCwd,piIsNew:piIsNew},\\g<R>){',
         "P17-dd-sig",
     )
     m_ddcwd = re.search(r'currentCwd:(?P<cwd>' + ID + r'),onCompact:', src)
@@ -1370,7 +1363,15 @@ def main():
     src = sub_once(
         src,
         r'\},(?P<R>' + ID + r')\)\{let\{t:(?P<it>' + ID + r')\}=\(0,(?P<M>' + ID + r')\.useI18n\)\(\),',
-        '},\\g<R>){let{t:\\g<it>}=(0,\\g<M>.useI18n)(),[piOpen,piSetOpen]=(0,r.useState)(!1),piRef=(0,r.useRef)(null),',
+        '},\\g<R>){let{t:\\g<it>}=(0,\\g<M>.useI18n)(),[piOpen,piSetOpen]=(0,r.useState)(!1),piRef=(0,r.useRef)(null),'
+        '[piDirs,piSetDirs]=(0,r.useState)([]),'
+        'piFx=(0,r.useEffect)(function(){if(!piOpen)return;'
+        'fetch("/api/sessions").then(function(x){return x.json()}).then(function(d){'
+        'var s=(d&&d.sessions)||[],m={},i,c,t;'
+        'for(i=0;i<s.length;i++){c=s[i]&&s[i].cwd;if(!c)continue;t=s[i].modified||"";'
+        'if(!m[c]||t>m[c])m[c]=t}'
+        'var a=Object.keys(m);a.sort(function(x,y){return m[y].localeCompare(m[x])});'
+        'piSetDirs(a.slice(0,5))}).catch(function(){})},[piOpen]),',
         "P17-dd-state",
     )
     src = sub_once(
@@ -1493,6 +1494,10 @@ def main():
     if (src.count("[piOpen,piSetOpen]=(0,r.useState)(!1)") != 1
             or src.count("V(piRef,piOpen,function(){piSetOpen(!1)})") != 1):
         raise PatchError("自检失败：P17 弹窗状态/点击外部关闭异常")
+    if (src.count("[piDirs,piSetDirs]=(0,r.useState)([])") != 1
+            or src.count("piSetDirs(a.slice(0,5))") != 1
+            or src.count("piDirOptions") != 0):
+        raise PatchError("自检失败：P17 最近目录应为弹窗打开时自 fetch（piDirs 本地 state），无 piDirOptions 残留")
     for _mk in ('children:"最近目录"', 'children:"使用默认目录"', 'children:"选择其他目录…"', 'title:"切换目录"'):
         if src.count(_mk) != 1:
             raise PatchError(f"自检失败：P17 弹窗标记异常：{_mk} × {src.count(_mk)}")

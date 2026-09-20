@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- 归档模板：安装时把 USERNAME 替换为实际用户名后放到 ~/Library/LaunchAgents/ -->
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
@@ -7,15 +8,15 @@
   <key>ProgramArguments</key>
   <array>
     <string>/bin/bash</string>
-    <string>/Users/zhoustarstar/.pi-ui-patches/watch_and_apply.sh</string>
+    <string>/Users/USERNAME/.pi-ui-patches/watch_and_apply.sh</string>
   </array>
   <key>RunAtLoad</key>
   <true/>
   <key>StartInterval</key>
   <integer>3600</integer>
   <key>StandardOutPath</key>
-  <string>/Users/zhoustarstar/.pi-ui-patches/watch.log</string>
+  <string>/Users/USERNAME/.pi-ui-patches/watch.log</string>
   <key>StandardErrorPath</key>
-  <string>/Users/zhoustarstar/.pi-ui-patches/watch.log</string>
+  <string>/Users/USERNAME/.pi-ui-patches/watch.log</string>
 </dict>
 </plist>

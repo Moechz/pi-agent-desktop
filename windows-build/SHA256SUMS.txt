@@ -1,2 +1,2 @@
 b207771ab69734fc237da6bf13b973eafa78348c2daeb26b77be8fdadab7e1d6  Pi-Agent-Desktop-Custom-0.8.8-1-macOS-universal.zip
-f34590a5780dbf3756f512e1923df607785d4d88601fd341ecac5fbf1a433953  Pi-Agent-Desktop-Custom-Setup-0.8.8-1.exe
+7636680501ea945ff7da600530c3d8cc4eb92cbbfd8795b6cc9788b93920d585  Pi-Agent-Desktop-Custom-Setup-0.8.8-1.exe

@@ -24,7 +24,7 @@
 set -u
 
 PI_AGENT="$HOME/.pi/agent"
-APPDATA="$HOME/Library/Application Support/@chasen-liao/pi-agent-desktop"
+APPDATA="$(ls -d "$HOME/Library/Application Support/"@*pi-agent-desktop 2>/dev/null | head -1)"
 DEST="${PI_UI_HOME:-$HOME/.pi-ui-patches}/userdata"
 KEEP=10
 
@@ -80,9 +80,9 @@ for p in \
     ".pi/agent/models-store.json" \
     ".pi/agent/auth.json" \
     ".pi/agent/AGENTS.md" \
-    "Library/Application Support/@chasen-liao/pi-agent-desktop/Local Storage" \
-    "Library/Application Support/@chasen-liao/pi-agent-desktop/Session Storage" \
-    "Library/Application Support/@chasen-liao/pi-agent-desktop/Cookies"
+    "Library/Application Support/@*pi-agent-desktop/Local Storage" \
+    "Library/Application Support/@*pi-agent-desktop/Session Storage" \
+    "Library/Application Support/@*pi-agent-desktop/Cookies"
 do
     [ -e "$HOME/$p" ] && MEMBERS+=("$p")
 done

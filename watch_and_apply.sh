@@ -7,7 +7,7 @@
 # launchd 无权读取；本文件的归档副本在 ~/Documents/projects/pi-agent-UI-change-memo/
 DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_STANDALONE="/Applications/Pi Agent Desktop.app/Contents/Resources/standalone"
-CACHE="$HOME/Library/Application Support/@chasen-liao/pi-agent-desktop"
+CACHE="$(ls -d "$HOME/Library/Application Support/"@*pi-agent-desktop 2>/dev/null | head -1)"
 
 # 人工冻结（patch-off.sh）→ 什么都不做
 if [ -f "$DIR/FROZEN" ]; then

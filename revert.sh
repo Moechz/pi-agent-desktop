@@ -24,7 +24,7 @@ RT="${PI_UI_HOME:-$HOME/.pi-ui-patches}"
 BK="$RT/backup"
 SNAP="$RT/snapshots"
 FROZEN="$RT/FROZEN"
-CACHE="$HOME/Library/Application Support/@chasen-liao/pi-agent-desktop"
+CACHE="$(ls -d "$HOME/Library/Application Support/"@*pi-agent-desktop 2>/dev/null | head -1)"
 
 FORCE=0; KEEP_PATCHED=0
 for a in "$@"; do

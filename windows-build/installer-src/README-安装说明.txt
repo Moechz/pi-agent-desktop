@@ -21,5 +21,5 @@ Pi Agent Desktop 定制版（0.8.8-custom）安装说明
   卸载保留会话/聊天数据（位于 %APPDATA%\..\Roaming 对应目录）。
 
 五、许可
-  基于 Chasen-Liao/pi-agent-desktop（MIT License）官方 0.8.8 构建，
+  基于上游官方 0.8.8 构建（MIT License），
   仅修改了界面渲染产物；原许可文件随包分发（安装目录内）。

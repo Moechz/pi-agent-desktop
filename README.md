@@ -20,7 +20,7 @@
 | P8 | 全应用 DSH 风格（字体+色彩+字号阶梯） | 全局换 DSH Desktop 字体栈（PingFang SC 等）+ 抗锯齿；背景/文字/边框/状态色映射 DSH 设计令牌（明暗两套），**强调色保留 Pi 原橙**；正文行高 1.71，markdown 标题对齐 DSH 绝对字号；二轮：字号阶梯对齐 DSH（按钮/菜单项 13px、次级 12→13、说明 11→12），修复表单控件 text-[Npx] 被无层 font:inherit 压制导致设置菜单字体不变的问题 |
 | P15 | 会话条目紧凑化 | 删去标题下方 meta 行（时间+消息数，排版乱）；标题行最右固定位置显示紧凑相对时间（now/Nm/Nh/Nd，数字等宽不跳动，悬停看完整时间戳）；取消空闲灰点，只保留运行中绿点；行高自定义类 __piRowH + patch_css 注入规则（现 40px；⚠ Tailwind h-[Npx] 是编译期类，改字符串无效——五轮调高不生效的根因）；**目录名与会话标题文字左对齐**（固定 21px 圆点槽，标题恒从 35px 起，绿点落文件夹图标正下方且不引起标题跳动）；组头文件夹图标 14→17px |
 | P16 | 顶部路径栏 → 新建目录钮 | 侧边栏顶部不再显示当前工作目录路径；第二行统一为四个同规格 chrome 方形图标钮（28px），左→右：新会话（图标+文字）/ 新建目录（直通系统文件夹选择器）/ ▾ 历史目录下拉 / 刷新；整行内联 marginTop:24 下移、右对齐。📄 详 PATCHES.md §4f |
-| P17 | 新会话输入框目录名 + ▾ 切换目录 | 点“+ 新会话”后，输入框左上角显示当前目录名（末段，hover 看全路径），右侧 ▾ 弹窗切换目录：最近目录 5 个（当前项打勾）/ 使用默认目录 / 选择其他目录…（系统选择器）；复用 ej（与侧边栏“+ 新会话”同一函数），仅在无会话的新会话态显示。📄 详 PATCHES.md §4g |
+| P17 | 新会话输入框目录名 + ▾ 切换目录 | 点“+ 新会话”后输入框左上角显当前目录名（末段，hover 全路径），▾ 弹窗切换：最近目录前 5（弹窗打开时自 fetch /api/sessions 计算，当前项打勾）/ 使用默认目录 / 选择其他目录…；复用 ej(id,cwd)（与侧边栏“+ 新会话”同函数，目录在第 2 参）；仅新会话态显示。📄 详 PATCHES.md §4g |
 
 ## 二、更新后被覆盖怎么办
 
@@ -95,9 +95,7 @@ bash    ~/.pi-ui-patches/user-data-backup.sh --restore <文件>  # 恢复（先 
 ```bash
 # ① 还原官方文件（带版本守卫，升级后不会拿旧备份硬塞）
 bash ~/.pi-ui-patches/revert.sh
-# ② 清渲染缓存
-rm -rf "$HOME/Library/Application Support/@chasen-liao/pi-agent-desktop/Cache/Cache_Data" \
-       "$HOME/Library/Application Support/@chasen-liao/pi-agent-desktop/Code Cache"/*
+# ② 渲染缓存已由 revert.sh 自动清理
 # ③ Cmd+Q 完全退出后重开；仍不行 → ④ 终极：官方 DMG 覆盖重装（必定恢复，用户数据不受影响）
 hdiutil attach ~/.pi-ui-patches/backup/installer/Pi-Agent-Desktop-0.8.8-mac-universal.dmg
 # 挂载后把 App 拖进 /Applications 覆盖

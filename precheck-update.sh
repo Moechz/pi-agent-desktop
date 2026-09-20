@@ -2,7 +2,7 @@
 # ============================================================================
 # Pi Agent Desktop UI 补丁 —— 上游更新预检（不动真 App，一条命令看清兼容性）
 #
-# 场景：上游（Chasen-Liao/pi-agent-desktop）发布了新版本，你想知道：
+# 场景：上游官方发布了新版本，你想知道：
 #   更新后我的 17 组定制还能不能自动打上？哪些锚点要人工适配？
 #
 # 原理：挂载新官方 DMG → 提取补丁面到 /tmp 沙盒 → 用当前 apply_patches.py
@@ -13,7 +13,7 @@
 #   bash precheck-update.sh <新官方DMG路径> --adopt    # 预检通过后顺便采集该版备份
 #                                                      # （pristine/MANIFEST/归档DMG，
 #                                                      #  让 revert.sh 对新版本也有兜底）
-# 下载新 DMG：github.com/Chasen-Liao/pi-agent-desktop 的 Releases
+# 下载新 DMG：官方 GitHub Releases（owner/repo 用 cat "/Applications/Pi Agent Desktop.app/Contents/Resources/app-update.yml" 查得）
 #   （本机直连 443 不通：浏览器下载，或 curl -x http://127.0.0.1:7890 -L -o）
 #
 # 结果：退出码 0 = 全部命中，放心更新（看护会自动重打）
