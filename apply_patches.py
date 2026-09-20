@@ -730,6 +730,43 @@ def patch_server():
     print("✅ [P19] server.js 已注入 no-cache（/_next/static/* 不再 immutable，改完重启即生效）")
 
 
+def patch_typography():
+    """P20：字号五档制 11/12/13/14/15（2026-09-20 用户：UI/设置菜单文字大小不统一）。
+    审计（原版 chunk）：10×16、11×53、12×78、13×18、14×6、15×2、9×2、12.5×1、3.4×1。
+    归档规则（档位↓，颜色仍用主题四级灰 strong/text/muted/dim，按重要性选）：
+      11 注释档：分组小标题(UPPERCASE)/空状态/徽标/时间戳 ← 10、9 并入
+      12 提示档：副文本/tab 标签/快捷键/meta（12.5 代码块也归此）
+      13 正文档：菜单项/列表行/按钮/输入框
+      14 区块标题（w600）；15 页标题（w700）
+      保留不动：20（空状态大图标）、3.4（SVG 内部字形，非 UI 文字）
+    幂等：无 10/9/12.5 残留即跳过。必须在 patch_js_dsh_sizes 之后跑（P8c 锚点
+    依赖原始字号值）。"""
+    chunk, src = find_chunk()
+    sweeps = [
+        (re.compile(r'fontSize:10(?![.\d])'), 'fontSize:11'),
+        (re.compile(r'fontSize:9(?![.\d])'), 'fontSize:11'),
+        (re.compile(r'fontSize:(9\.5|10\.5)(?![.\d])'), 'fontSize:11'),
+        (re.compile(r'fontSize:12\.5(?![.\d])'), 'fontSize:12'),
+    ]
+    total = 0
+    new = src
+    for pat, rep in sweeps:
+        new, n = pat.subn(rep, new)
+        total += n
+    if total == 0:
+        print("✅ [P20] 字号五档制已归位（无 10/9/12.5 残留），跳过")
+        return
+    for pat, _ in sweeps:
+        if pat.search(new):
+            raise PatchError("[P20] 字号归档后仍有残留（正则异常）")
+    tmp = chunk + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(new)
+    os.replace(tmp, chunk)
+    print(f"✅ [P20] 字号五档制：{total} 处归位（10→11、9→11、12.5→12；"
+          f"11注释/12提示/13正文/14区块/15页题；颜色四级 strong/text/muted/dim 不变）")
+
+
 def main():
     # P19：服务器响应头（独立文件 server.js，幂等）
     patch_server()
@@ -758,6 +795,7 @@ def main():
         # P13 须在 P1-msg（MARKER 流程注入的消息级隐藏规则）之后：
         # 改写其 null 分支为错误条。此处对已部署 chunk 成立。
         patch_error_banner()
+        patch_typography()  # P20 放最后（P8c 锚点依赖原始字号值，必须在其后扫）
         return 0
     orig = src
 
@@ -1481,11 +1519,11 @@ def main():
         'background:"var(--bg)",border:"1px solid var(--border)",borderRadius:"var(--radius-panel)",',
         'boxShadow:"var(--shadow-popover)",padding:4},children:[',
         JX + '("div",{style:{padding:"5px 8px 6px",fontSize:13,fontWeight:600,',
-        'color:"var(--text-dim)"},children:"已添加目录"}),',
+        'color:"var(--text-strong)"},children:"已添加目录"}),',
         '(piDirs||[]).length===0?' + JX + '("div",{style:{padding:"6px 8px",fontSize:12,color:"var(--text-dim)"},',
         'children:"暂无记录"}):(piDirs||[]).map(function(d){return ' + JXS + '("button",{type:"button",',
         'onClick:function(){piSetOpen(!1),piOnCwd(null,d)},title:d,className:"' + ROW_CLS + '",',
-        'style:{borderRadius:6,fontSize:12},children:[' + DIR_SVG + ',',
+        'style:{borderRadius:6,fontSize:13},children:[' + DIR_SVG + ',',
         JX + '("span",{style:{flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textAlign:"left"},',
         'children:(d||"").split("/").filter(Boolean).slice(-1)[0]||d}),',
         'd===' + CWD + '?' + CHECK_SVG + ':null]},d)}),',
@@ -1615,6 +1653,7 @@ def main():
     patch_js_dsh_sizes()  # P8c：在 P1-P7 之后扫（P5 锚点依赖原始字号值）
     # P13 放最后：消息级规则已由 P1-msg 注入，此处改写其 null 分支为错误条
     patch_error_banner()
+    patch_typography()  # P20 放最后（P8c 锚点依赖原始字号值，必须在其后扫）
     return 0
 
 
