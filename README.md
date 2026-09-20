@@ -1,4 +1,8 @@
 # pi-agent-UI-change-memo — Pi Agent Desktop 界面定制备忘
+> ⚠ **本项目已进入维护冻结（2026-09-20 起）：新定制一律进源码 fork 仓库**
+> `~/Documents/projects/pi-agent-desktop-fork`（v0.8.8 分叉，P1–P21 移植进行中）。
+> 本仓库保留为补丁历史档案与对照基准，`switch-v1` 稳定 7 天后退役。本文件顶部的补丁在正式应用中继续生效，直到 fork 切换日。
+
 
 对 Pi Agent Desktop（`/Applications/Pi Agent Desktop.app`）所做的 **7 组 UI 定制补丁**的完整档案：
 补丁内容、技术原理、自动重打工具、原始文件备份。目的：**应用更新覆盖定制后能快速恢复**。
