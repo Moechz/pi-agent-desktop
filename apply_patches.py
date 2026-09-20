@@ -1371,7 +1371,9 @@ def main():
         'for(i=0;i<s.length;i++){c=s[i]&&s[i].cwd;if(!c)continue;t=s[i].modified||"";'
         'if(!m[c]||t>m[c])m[c]=t}'
         'var a=Object.keys(m);a.sort(function(x,y){return m[y].localeCompare(m[x])});'
-        'piSetDirs(a)}).catch(function(){})},[piOpen]),',
+        'var LS=[];try{LS=JSON.parse(localStorage.getItem("__piDirs")||"[]")||[]}catch(e){}'
+        'var ex=[];for(i=0;i<LS.length;i++){if(LS[i]&&a.indexOf(LS[i])<0)ex.push(LS[i])}'
+        'piSetDirs(a.concat(ex))}).catch(function(){})},[piOpen]),',
         "P17-dd-state",
     )
     src = sub_once(
@@ -1407,13 +1409,18 @@ def main():
         'strokeWidth:"2",strokeLinecap:"round",strokeLinejoin:"round",style:{flexShrink:0},children:'
         + JX + '("polyline",{points:"1.5 5 4 7.5 8.5 2.5"})})'
     )
-    # 行首小文件夹（每个目录行左前方；色比标题行亮一档 text-muted）
+    # 行首小文件夹（每个目录行左前方；四调：12→13px、描边 1.8 加粗，色 text-muted）
     DIR_SVG = (
-        JX + '("svg",{width:"12",height:"12",viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",'
-        'strokeWidth:"1.7",strokeLinecap:"round",strokeLinejoin:"round",'
+        JX + '("svg",{width:"13",height:"13",viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",'
+        'strokeWidth:"1.8",strokeLinecap:"round",strokeLinejoin:"round",'
         'style:{color:"var(--text-muted)",flexShrink:0},children:' + JX + '("path",{d:"M20 20a2 2 0 0 0'
         ' 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0'
         ' 2 2Z"})})'
+    )
+    # 「已添加目录」追加记录器：选过的目录（选择器/默认目录）存 localStorage，与会话目录并集
+    REC = (
+        '(function(p){try{var q=JSON.parse(localStorage.getItem("__piDirs")||"[]")||[];'
+        'if(p&&q.indexOf(p)<0){q.push(p);localStorage.setItem("__piDirs",JSON.stringify(q.slice(-50)))}}catch(e){}})'
     )
     ROW_CLS = (
         'w-full flex items-center gap-2 px-3 py-1.5 hover:bg-bg-hover text-left cursor-pointer '
@@ -1439,8 +1446,8 @@ def main():
         'bottom:"calc(100% + 6px)",zIndex:200,minWidth:240,maxHeight:340,overflowY:"auto",',
         'background:"var(--bg)",border:"1px solid var(--border)",borderRadius:"var(--radius-panel)",',
         'boxShadow:"var(--shadow-popover)",padding:4},children:[',
-        JX + '("div",{style:{padding:"5px 8px 3px",fontSize:10,fontWeight:600,textTransform:"uppercase",',
-        'letterSpacing:"0.06em",color:"var(--text-dim)"},children:"已添加目录"}),',
+        JX + '("div",{style:{padding:"5px 8px 6px",fontSize:13,fontWeight:600,',
+        'color:"var(--text-dim)"},children:"已添加目录"}),',
         '(piDirs||[]).length===0?' + JX + '("div",{style:{padding:"6px 8px",fontSize:12,color:"var(--text-dim)"},',
         'children:"暂无记录"}):(piDirs||[]).map(function(d){return ' + JXS + '("button",{type:"button",',
         'onClick:function(){piSetOpen(!1),piOnCwd(null,d)},title:d,className:"' + ROW_CLS + '",',
@@ -1450,9 +1457,9 @@ def main():
         'd===' + CWD + '?' + CHECK_SVG + ':null]},d)}),',
         JX + '("div",{style:{margin:"4px 0",borderTop:"1px solid var(--border)"}}),',
         JX + '("button",{type:"button",onClick:function(){piSetOpen(!1),fetch("/api/default-cwd",{method:"POST"})',
-        '.then(function(r){return r.json()}).then(function(r){r&&r.cwd&&piOnCwd(null,r.cwd)}).catch(function(){})},',
+        '.then(function(r){return r.json()}).then(function(r){r&&r.cwd&&(' + REC + '(r.cwd),piOnCwd(null,r.cwd))}).catch(function(){})},',
         'className:"' + ROW_CLS + '",style:{borderRadius:6,fontSize:12},children:"使用默认目录"}),',
-        JX + '("button",{type:"button",onClick:function(){piSetOpen(!1),' + PICK + '.then(function(p){p&&String(p).trim()&&piOnCwd(null,String(p).trim())}).catch(function(){})},',
+        JX + '("button",{type:"button",onClick:function(){piSetOpen(!1),' + PICK + '.then(function(p){var v=p&&String(p).trim();if(v){' + REC + '(v);piOnCwd(null,v)}}).catch(function(){})},',
         'className:"' + ROW_CLS + '",style:{borderRadius:6,fontSize:12},children:"选择其他目录…"})',
         ']})',
         ']})',
@@ -1464,6 +1471,17 @@ def main():
         '(0,\\g<ns>.jsxs)("div",{style:{maxWidth:820,margin:"0 auto"},children:[piIsNew?'
         + hdr.replace("\\", "\\\\") + ':null,',
         "P17-dd-header",
+    )
+
+    # ---------- P18：侧边栏「资源管理器」默认收起（用户 2026-09-20） ----------
+    # X 组件里 explorer 展开状态默认 !0（展开）：`p??null,[T,A]=(0,r.useState)(!0),`
+    # （已验证唯一；T 同时控制 chevron rotate(90deg) 与 h("sidebar.explorer") 区块显隐）
+    # 仅改默认值 → /*__piExpl*/!1；点击展开/收起逻辑不变；不存 localStorage（重启即回默认收起）
+    src = sub_once(
+        src,
+        r'(?P<k>' + ID + r')\?\?null,\[(?P<T>' + ID + r'),(?P<A>' + ID + r')\]=\(0,r\.useState\)\(!0\),',
+        '\\g<k>??null,[\\g<T>,\\g<A>]=(0,r.useState)(/*__piExpl*/!1),',
+        "P18-explorer-collapse",
     )
 
     if MARKER not in src or "__piCLst" not in src or "_piS" not in src or "PingFang SC" not in src:
@@ -1505,9 +1523,13 @@ def main():
             or src.count("V(piRef,piOpen,function(){piSetOpen(!1)})") != 1):
         raise PatchError("自检失败：P17 弹窗状态/点击外部关闭异常")
     if (src.count("[piDirs,piSetDirs]=(0,r.useState)([])") != 1
-            or src.count("piSetDirs(a)") != 1
+            or src.count("piSetDirs(a.concat(ex))") != 1
+            or src.count('localStorage.getItem("__piDirs")') != 3
+            or src.count('localStorage.setItem("__piDirs"') != 2
             or src.count("piDirOptions") != 0):
-        raise PatchError("自检失败：P17 目录清单应为弹窗打开时自 fetch 全量（piDirs 本地 state），无 piDirOptions 残留")
+        raise PatchError("自检失败：P17 目录清单应为 会话目录∪自选目录并集（localStorage __piDirs），无 piDirOptions 残留")
+    if src.count("/*__piExpl*/") != 1:
+        raise PatchError("自检失败：P18 资源管理器默认收起标记异常")
     for _mk in ('children:"已添加目录"', 'children:"使用默认目录"', 'children:"选择其他目录…"', 'title:"切换目录"'):
         if src.count(_mk) != 1:
             raise PatchError(f"自检失败：P17 弹窗标记异常：{_mk} × {src.count(_mk)}")
