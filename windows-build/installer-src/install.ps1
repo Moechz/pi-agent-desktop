@@ -3,7 +3,7 @@ $target = Join-Path $env:LOCALAPPDATA 'Programs\pi-agent-desktop'
 $src    = Join-Path $PSScriptRoot 'app'
 
 Write-Host '==============================================='
-Write-Host '   Pi Agent Desktop 定制版 安装程序 (0.8.8)'
+Write-Host '   Pi Agent Desktop 定制版 安装程序 (0.8.8-1)'
 Write-Host '==============================================='
 Write-Host ''
 
@@ -40,7 +40,7 @@ Write-Host '[3/4] 注册卸载信息（开始菜单可搜索"卸载"）...'
 $reg = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\PiAgentDesktopCustom'
 New-Item -Path $reg -Force | Out-Null
 Set-ItemProperty $reg -Name DisplayName       -Value 'Pi Agent Desktop (定制版)'
-Set-ItemProperty $reg -Name DisplayVersion    -Value '0.8.8-custom'
+Set-ItemProperty $reg -Name DisplayVersion    -Value '0.8.8-1'
 Set-ItemProperty $reg -Name Publisher         -Value '内部定制分发'
 Set-ItemProperty $reg -Name InstallLocation   -Value $target
 Set-ItemProperty $reg -Name DisplayIcon       -Value (Join-Path $target 'Pi Agent Desktop.exe')

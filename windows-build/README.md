@@ -4,7 +4,7 @@
 
 ## 产物
 
-- `Pi-Agent-Desktop-Custom-Setup-0.8.8.exe`（142MB；r2 = 含 P8 字体配色/P3v2 实心点/P1v3 轮次级隐藏，SHA256 见 `SHA256SUMS.txt`）
+- `Pi-Agent-Desktop-Custom-Setup-0.8.8-1.exe`（142MB；v0.8.8-1 = 上游 0.8.8 全部 17 组补丁，SHA256 见 `SHA256SUMS.txt`）
 - 结构 = 官方 `7z.sfx` 模块 + UTF-8 配置（BeginPrompt/RunProgram）+ 7z 归档
   （app/ + install.ps1 + uninstall.ps1 + README-安装说明.txt）
 - 安装到 `%LOCALAPPDATA%\Programs\pi-agent-desktop`（每用户，无需管理员），
@@ -14,7 +14,7 @@
 
 | 改动 | 目的 |
 |---|---|
-| `.next/static/chunks/0wz_4dmun1la1.js` 替换为打补丁版（补丁集与 Mac 运行时一致；md5 随补丁版本变，r2 期 Mac=`3d54fccc…`） | 7 组 UI 补丁 + P8 系 + P3v2 + P1v3 |
+| `.next/static/chunks/0wz_4dmun1la1.js` 替换为打补丁版（补丁集与 Mac 运行时一致（v0.8.8-1 期三方 sha256 前16位 = `b89ecdc0cfcc7f16`）） | 7 组 UI 补丁 + P8 系 + P3v2 + P1v3 |
 | `.next/static/chunks/1o8y9tk-h0e51.css` 替换为打补丁版 | P6 弹窗不透明 |
 | 删除 `resources/app-update.yml` | 禁自动更新（官方更新会覆盖补丁；主进程对配置缺失是 logError 静默，已核实） |
 

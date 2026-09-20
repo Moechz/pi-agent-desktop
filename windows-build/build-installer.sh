@@ -6,7 +6,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-VER="0.8.8"
+VER="0.8.8-1"
 SEVENZ="$HOME/tools/7zip/7zz"
 SFX="$HOME/tools/7zip/7z.sfx"
 APP="app-custom"                     # 已打 UI 补丁的应用目录

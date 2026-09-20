@@ -168,5 +168,9 @@ pi-agent-UI-change-memo/
 ## 六、Windows 分发版（分给同事）
 
 `windows-build/` 内有独立流水线：官方 Windows Setup 解包 → 同一 `apply_patches.py` 打
-7 组补丁 → 7z.sfx 封装免管理员安装器（用户数据空白、已禁自动更新）。
+17 组补丁 → 7z.sfx 封装免管理员安装器（用户数据空白、已禁自动更新）。
+macOS 定制包（zip）同流水线产出：官方 DMG 提取 → 打补丁 → ditto zip。
 产物、隐私扫描结论、重建步骤见 `windows-build/README.md`；技术细节见 `PATCHES.md` §8。
+
+**版本号规则**：`<上游版本>-<我们的 release 序号>`，如 `0.8.8-1` = 上游 0.8.8 第 1 次发布。
+发布 = GitHub Release（tag `v0.8.8-1`）+ 双平台产物 + SHA256SUMS。
