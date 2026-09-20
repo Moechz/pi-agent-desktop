@@ -1371,7 +1371,7 @@ def main():
         'for(i=0;i<s.length;i++){c=s[i]&&s[i].cwd;if(!c)continue;t=s[i].modified||"";'
         'if(!m[c]||t>m[c])m[c]=t}'
         'var a=Object.keys(m);a.sort(function(x,y){return m[y].localeCompare(m[x])});'
-        'piSetDirs(a.slice(0,5))}).catch(function(){})},[piOpen]),',
+        'piSetDirs(a)}).catch(function(){})},[piOpen]),',
         "P17-dd-state",
     )
     src = sub_once(
@@ -1407,6 +1407,14 @@ def main():
         'strokeWidth:"2",strokeLinecap:"round",strokeLinejoin:"round",style:{flexShrink:0},children:'
         + JX + '("polyline",{points:"1.5 5 4 7.5 8.5 2.5"})})'
     )
+    # 行首小文件夹（每个目录行左前方；色比标题行亮一档 text-muted）
+    DIR_SVG = (
+        JX + '("svg",{width:"12",height:"12",viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",'
+        'strokeWidth:"1.7",strokeLinecap:"round",strokeLinejoin:"round",'
+        'style:{color:"var(--text-muted)",flexShrink:0},children:' + JX + '("path",{d:"M20 20a2 2 0 0 0'
+        ' 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0'
+        ' 2 2Z"})})'
+    )
     ROW_CLS = (
         'w-full flex items-center gap-2 px-3 py-1.5 hover:bg-bg-hover text-left cursor-pointer '
         'transition-colors border-none bg-transparent text-text'
@@ -1432,13 +1440,14 @@ def main():
         'background:"var(--bg)",border:"1px solid var(--border)",borderRadius:"var(--radius-panel)",',
         'boxShadow:"var(--shadow-popover)",padding:4},children:[',
         JX + '("div",{style:{padding:"5px 8px 3px",fontSize:10,fontWeight:600,textTransform:"uppercase",',
-        'letterSpacing:"0.06em",color:"var(--text-dim)"},children:"最近目录"}),',
+        'letterSpacing:"0.06em",color:"var(--text-dim)"},children:"已添加目录"}),',
         '(piDirs||[]).length===0?' + JX + '("div",{style:{padding:"6px 8px",fontSize:12,color:"var(--text-dim)"},',
         'children:"暂无记录"}):(piDirs||[]).map(function(d){return ' + JXS + '("button",{type:"button",',
         'onClick:function(){piSetOpen(!1),piOnCwd(null,d)},title:d,className:"' + ROW_CLS + '",',
-        'style:{borderRadius:6,fontSize:12},children:[d===' + CWD + '?' + CHECK_SVG + ':' + JX + '("span",{style:{width:11,flexShrink:0}}),',
-        JX + '("span",{style:{flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"},',
-        'children:(d||"").split("/").filter(Boolean).slice(-1)[0]||d})]},d)}),',
+        'style:{borderRadius:6,fontSize:12},children:[' + DIR_SVG + ',',
+        JX + '("span",{style:{flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textAlign:"left"},',
+        'children:(d||"").split("/").filter(Boolean).slice(-1)[0]||d}),',
+        'd===' + CWD + '?' + CHECK_SVG + ':null]},d)}),',
         JX + '("div",{style:{margin:"4px 0",borderTop:"1px solid var(--border)"}}),',
         JX + '("button",{type:"button",onClick:function(){piSetOpen(!1),fetch("/api/default-cwd",{method:"POST"})',
         '.then(function(r){return r.json()}).then(function(r){r&&r.cwd&&piOnCwd(null,r.cwd)}).catch(function(){})},',
@@ -1463,9 +1472,10 @@ def main():
         raise PatchError("自检失败：P15 行高自定义类标记异常（CSS 规则由 patch_css 注入）")
     # P16：顶部目录栏已换成“文件夹+加号”图标钮（v()）+ ▾ 展开钮，且旧路径渲染已不存在
     # ⚠ 组头那处路径是三元字面量 `d:__piCLst[...]?"M20 20a2…"`（前面是 ? 不是 d:"），
-    #   所以只能用不带前缀的宽松串计数：现应为 3 处 = 1 组头（P3-2）+ 1 新建目录钮（P16）+ 1 P17 目录行图标
+    #   所以只能用不带前缀的宽松串计数：现应为 4 处 = 1 组头（P3-2）+ 1 新建目录钮（P16）
+    #   + 1 P17 目录行图标 + 1 P17 弹窗每行小文件夹
     if (src.count('d:"M12 10v6"') != 1 or src.count('d:"M9 13h6"') != 1
-            or src.count('M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9') != 3):
+            or src.count('M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9') != 4):
         raise PatchError("自检失败：P16 新建目录图标（文件夹+加号）标记异常")
     if "H(e,u)" in src:
         raise PatchError("自检失败：P16 旧路径渲染尚未移除")
@@ -1495,10 +1505,10 @@ def main():
             or src.count("V(piRef,piOpen,function(){piSetOpen(!1)})") != 1):
         raise PatchError("自检失败：P17 弹窗状态/点击外部关闭异常")
     if (src.count("[piDirs,piSetDirs]=(0,r.useState)([])") != 1
-            or src.count("piSetDirs(a.slice(0,5))") != 1
+            or src.count("piSetDirs(a)") != 1
             or src.count("piDirOptions") != 0):
-        raise PatchError("自检失败：P17 最近目录应为弹窗打开时自 fetch（piDirs 本地 state），无 piDirOptions 残留")
-    for _mk in ('children:"最近目录"', 'children:"使用默认目录"', 'children:"选择其他目录…"', 'title:"切换目录"'):
+        raise PatchError("自检失败：P17 目录清单应为弹窗打开时自 fetch 全量（piDirs 本地 state），无 piDirOptions 残留")
+    for _mk in ('children:"已添加目录"', 'children:"使用默认目录"', 'children:"选择其他目录…"', 'title:"切换目录"'):
         if src.count(_mk) != 1:
             raise PatchError(f"自检失败：P17 弹窗标记异常：{_mk} × {src.count(_mk)}")
     # 七调：+ 号改小改细（十字收进 2.5..9.5 为原版不存在的唯一标记；

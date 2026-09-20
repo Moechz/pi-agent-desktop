@@ -533,9 +533,9 @@ shell（AppShell）— dz 调用 —→ dz（chat 区）— dd 调用 —→ dd�
 **自检标记**：`piOnCwdChange:`×4（shell→dz 传参、dz 解构、dz→dd 转发、dd 解构）、
 `piIsNew:!e})`×1、`children:[piIsNew?`×1、`[piOpen,piSetOpen]=(0,r.useState)(!1)`×1、
 `V(piRef,piOpen,function(){piSetOpen(!1)})`×1、`piOnCwd(null,`×3、
-`[piDirs,piSetDirs]=(0,r.useState)([])`×1、`piSetDirs(a.slice(0,5))`×1、
-`piDirOptions`×0（必须无残留）、弹窗三文案各×1。
-⚠ P16 自检里“闭合文件夹路径”计数已由 2 改 3（P17 又用了一次这个图标）。
+`[piDirs,piSetDirs]=(0,r.useState)([])`×1、`piSetDirs(a)`×1（全量，不再 slice 前 5）、
+`piDirOptions`×0（必须无残留）、弹窗文案：已添加目录/使用默认目录/选择其他目录…/title:切换目录 各×1。
+⚠ P16 自检里“闭合文件夹路径”计数已由 2 改 4（P17 目录行 + 弹窗行各用一次）。
 ⚠ 锚点坑记录：`(0,M.useI18n)()` 中 `useI18n` 后面是 **`)`**（分组括号）不是 `(`——
 原写成 `\.useI18n\(\)` 导致 0 命中；另 `,[C,L]=useState("")` 类锚点在全文件撞 15 次，
 改用 `},R){let{t:_}=(0,M.useI18n)(),` 才唯一。
