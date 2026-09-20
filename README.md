@@ -22,6 +22,7 @@
 | P16 | 顶部路径栏 → 新建目录钮 | 侧边栏顶部不再显示当前工作目录路径；第二行统一为四个同规格 chrome 方形图标钮（28px），左→右：新会话（图标+文字）/ 新建目录（直通系统文件夹选择器）/ ▾ 历史目录下拉 / 刷新；整行内联 marginTop:24 下移、右对齐。📄 详 PATCHES.md §4f |
 | P17 | 新会话输入框目录名 + ▾ 切换目录 | 点“+ 新会话”后输入框左上角显当前目录名（末段，hover 全路径），▾ 弹窗切换：「已添加目录」=会话目录∪自选过目录（localStorage 记忆，全量不截断；每行 13px 文件夹 icon + 目录名，当前项行尾打勾，可滚动）/ 使用默认目录 / 选择其他目录…；目录清单为弹窗打开时自 fetch /api/sessions 计算；复用 ej(id,cwd)（与侧边栏“+ 新会话”同函数，目录在第 2 参）；仅新会话态显示。📄 详 PATCHES.md §4g |
 | P18 | 资源管理器默认收起 | 重启后左侧栏底部「资源管理器」区块默认收起（原默认展开）；仅改 useState 默认值 /*__piExpl*/!1，点击展开逻辑不变、不持久化；收起时会话列表自动占满剩余高度 |
+| P19 | 服务器 no-cache | 给 server.js 注入响应头拦截：/_next/static/* 不再发 immutable（一年）改发 no-cache，修「改完 chunk 重启也看到旧 UI」（Chromium 缓存永不回源）；存量条目需 hard-restart.sh 清一次 |
 
 ## 二、更新后被覆盖怎么办
 
@@ -39,6 +40,7 @@ bash ~/.pi-ui-patches/revert.sh    # 🚨 修坏了 → 一键回滚到干净原
 bash ~/.pi-ui-patches/patch-on.sh  # 回滚后恢复定制（解冻+重打+清缓存）
 bash ~/.pi-ui-patches/patch-off.sh # 只冻结看护（不让 launchd 自动打补丁）
 bash ~/.pi-ui-patches/backup-app.sh --snapshot  # 改补丁前打一份快照（强烈建议）
+bash ~/.pi-ui-patches/hard-restart.sh # 硬重启：退出→清缓存→重开（部署后看不到修改时用，见 P19）
 ```
 
 保险层级：真原版（从官方 DMG 提取，66 文件）→ `.orig`（8 个，已验证与 DMG 逐字节一致）

@@ -18,11 +18,12 @@
 ## 二、五条命令（背下来）
 
 ```bash
-bash ~/.pi-ui-patches/status.sh   # 体检：版本/补丁在位/备份可信度/看护/快照/语法
-bash ~/.pi-ui-patches/revert.sh   # 🚨 修坏了 → 回滚到干净原版（含 5 道保险，见下）
-bash ~/.pi-ui-patches/patch-on.sh # 回滚后想恢复定制：解冻看护 + 立即重打 + 清缓存
-bash ~/.pi-ui-patches/patch-off.sh        # 只冻结看护（不让 launchd 自动打补丁）
-bash ~/.pi-ui-patches/backup-app.sh --snapshot   # 改补丁前打一份快照（强烈建议）
+bash ~/.pi-ui-patches/status.sh        # 体检：版本/补丁在位/备份可信度/看护/快照/语法
+bash ~/.pi-ui-patches/revert.sh        # 🚨 修坏了 → 回滚到干净原版（含 5 道保险，见下）
+bash ~/.pi-ui-patches/patch-on.sh      # 回滚后想恢复定制：解冻看护 + 立即重打 + 清缓存
+bash ~/.pi-ui-patches/patch-off.sh     # 只冻结看护（不让 launchd 自动打补丁）
+bash ~/.pi-ui-patches/hard-restart.sh  # 硬重启：退出→清 Chromium 缓存→重开（部署后看不到修改时用）
+bash ~/.pi-ui-patches/backup-app.sh --snapshot  # 改补丁前打一份快照（强烈建议）
 ```
 
 日常开发节奏：**每次动手改补丁前** `backup-app.sh --snapshot`；
@@ -33,6 +34,7 @@ bash ~/.pi-ui-patches/backup-app.sh --snapshot   # 改补丁前打一份快照�
 | 症状 | 处置 |
 |---|---|
 | 白屏 / 界面不加载 | ① `status.sh` 看「语法」行（node --check 会指出坏 chunk）→ ② 直接 `revert.sh` 回原版 → ③ Cmd+Q 重启 → ④ 好了以后再排查补丁 |
+| 改完补丁、重启了却还是旧 UI | Next.js 对静态 chunk 发 `immutable`（一年）缓存头，改名不改内容的部署方式命不中回源。P19 已让服务器发 no-cache 治本；存量旧条目需 `hard-restart.sh`（退出态清缓存）清一次。⚠ 清缓存必须在应用完全退出后做，运行中清会被旧进程写回 |
 | 某个功能行为怪（如点按钮目录被清空） | 同上先回滚保命；再用 git log 找到上一个好 commit 重打 |
 | 应用自动更新（0.8.8→0.8.9） | 看护 1 小时内自动重打；失败会有系统通知 → 打开本项目让助手重新适配。⚠️ 此时 `.orig` 已过时，revert.sh 会拒绝执行并给出指引（防把旧产物塞进新版造成白屏） |
 | 想完全卸掉定制 | `revert.sh` + 把 `~/Library/LaunchAgents/com.user.pi-ui-patch.plist` 删掉，或保留 plist 但留 FROZEN |

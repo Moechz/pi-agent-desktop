@@ -67,6 +67,7 @@ if [ -n "$FROM_DMG" ]; then
     rm -rf "$PDIR"; mkdir -p "$PDIR/chunks"
     cp "$SRC/.next/static/chunks/"*.js  "$PDIR/chunks/" 2>/dev/null
     cp "$SRC/.next/static/chunks/"*.css "$PDIR/chunks/" 2>/dev/null
+    cp "$SRC/server.js" "$PDIR/" 2>/dev/null   # P19 补丁面（服务器响应头）
     [ -d "$SRC/components" ] && cp -R "$SRC/components" "$PDIR/components"
     hdiutil detach "$MP" >/dev/null 2>&1
     echo "  ✅ 真原版已存：$PDIR（$(find "$PDIR" -type f | wc -l | tr -d ' ') 个文件）"

@@ -103,6 +103,7 @@ for f in "$BK"/*.orig; do
     [ -f "$f" ] || continue
     base="$(basename "$f" .orig)"
     case "$base" in
+        server.js) target="$APP/server.js" ;;
         *.js|*.css) target="$APP/.next/static/chunks/$base" ;;
         *.ts|*.tsx) target="$(find "$APP/components" -type f -name "$base" 2>/dev/null | head -1)" ;;
         *) target="" ;;

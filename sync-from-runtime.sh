@@ -11,6 +11,7 @@ cp ~/.pi-ui-patches/backup-app.sh "$P/"
 cp ~/.pi-ui-patches/patch-on.sh "$P/"
 cp ~/.pi-ui-patches/patch-off.sh "$P/"
 cp ~/.pi-ui-patches/status.sh "$P/"
+cp ~/.pi-ui-patches/hard-restart.sh "$P/"
 cp ~/.pi-ui-patches/README.md "$P/RUNTIME_README.md" 2>/dev/null || true
 cp ~/Library/LaunchAgents/com.user.pi-ui-patch.plist "$P/"
 cd "$P"

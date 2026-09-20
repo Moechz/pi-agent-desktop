@@ -554,6 +554,29 @@ T 同时控制区块高度 flex、chevron rotate(90deg)、面板显隐，与 h("
 **不持久化**（用户要求“重启后默认收起”，故不存 localStorage——手动展开仅当次会话有效）。
 副作用：收起时会话列表 flex 从 "1 1 0" 变 "1 1 auto"，可视区变高（符合紧凑偏好）。
 
+## 4i. P19 — 服务器 no-cache（修「部署了重启也看不到」的顽固问题）
+
+**现象**：改完 chunk 部署，用户 Cmd+Q 重启后看到的仍是旧 UI（P17 四调实测复现）。
+
+**根因**：Next.js 对 `/_next/static/*` 默认发
+`Cache-Control: public, max-age=31536000, immutable`（一年，连条件请求都不发）。
+chunk 文件名含内容哈希，官方场景安全；但我们**改内容不改文件名** →
+Chromium 命中缓存里的旧条目永不回源。且清缓存必须在应用【完全退出】后做：
+运行中清了会被旧进程的内存索引重新写回（13:20 清过一次仍复现即此）。
+
+**修复**：给 `server.js`（37 行可读源码）注入 setHeader 拦截——
+URL 以 `/_next/static/` 开头的响应头 Cache-Control 一律改 `no-cache`
+（每次回源用 ETag 校验：变了 200 新内容，没变 304，开销可忽略）。
+标记 `/*__piNoCache*/`，锚点 `startServer({`（唯一）。
+实测：chunk/CSS → no-cache；页面路由不受影响（s-maxage 原样）。
+
+⚠ **存量 immutable 条目不会被新响应头清除**（缓存条目自带免检授权）——
+首次需在应用退出后清一次缓存：`bash ~/.pi-ui-patches/hard-restart.sh`
+（退出→清→重开一键完成）；此后永不复发。
+
+**备份面**：server.js 已加入 .orig/pristine/MANIFEST/revert.sh（server.js 映射到
+$APP 根而非 chunks/）。
+
 ## 5. 验证流程（每次适配后必做）
 
 ```bash

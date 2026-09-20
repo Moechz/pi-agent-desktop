@@ -698,7 +698,41 @@ def sub_once(src, pattern, repl, name, pos=None):
     return src[: m.start()] + m.expand(repl) + src[m.end():]
 
 
+def patch_server():
+    """P19：内嵌 Next 服务器对 /_next/static/* 发 no-cache（替代默认 immutable 一年）。
+    根因（2026-09-20 真实踩坑）：chunk 文件名含内容哈希，Next 默认发
+    `Cache-Control: public, max-age=31536000, immutable`；我们改内容不改文件名
+    → Chromium 命中旧缓存永不回源，部署后重启也看不到旧 UI。
+    no-cache = 每次回源校验（ETag 变 → 200 新内容；未变 → 304，开销可忽略）。
+    ⚠ 存量 immutable 缓存条目不会被本补丁清除——首次需在应用完全退出后清一次缓存
+    （hard-restart.sh），之后永不复发。"""
+    path = os.path.join(STANDALONE, "server.js")
+    if not os.path.isfile(path):
+        print("⚠️  [P19] 未找到 server.js，跳过")
+        return
+    s = open(path, encoding="utf-8").read()
+    if "__piNoCache" in s:
+        print("✅ [P19] server.js no-cache 已在位，跳过")
+        return
+    if s.count("startServer({") != 1:
+        raise PatchError("[P19] server.js startServer 锚点异常")
+    inject = (
+        "/*__piNoCache*/const __piHttp=require('http'),"
+        "__piSH=__piHttp.ServerResponse.prototype.setHeader;"
+        "__piHttp.ServerResponse.prototype.setHeader=function(n,v){try{"
+        "if(typeof n==='string'&&/^cache-control$/i.test(n)"
+        "&&((this.req&&this.req.url)||'').indexOf('/_next/static/')===0)"
+        "return __piSH.call(this,n,'no-cache')}catch(e){}"
+        "return __piSH.call(this,n,v)};\n"
+    )
+    s = s.replace("startServer({", inject + "startServer({", 1)
+    open(path, "w", encoding="utf-8").write(s)
+    print("✅ [P19] server.js 已注入 no-cache（/_next/static/* 不再 immutable，改完重启即生效）")
+
+
 def main():
+    # P19：服务器响应头（独立文件 server.js，幂等）
+    patch_server()
     # P6/P8/P8b 是 CSS 补丁，独立于 JS MARKER 幂等（JS 已打过时也要能补 CSS）
     patch_css()
     patch_css_dsh()
