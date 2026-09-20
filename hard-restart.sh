@@ -11,7 +11,7 @@
 #
 # 用法：bash ~/.pi-ui-patches/hard-restart.sh
 # ============================================================================
-CACHE="$HOME/Library/Application Support/@chasen-liao/pi-agent-desktop"
+CACHE="$(ls -d "$HOME/Library/Application Support/"@*pi-agent-desktop 2>/dev/null | head -1)"
 LOG() { echo "$(date '+%F %T') $*"; }
 
 LOG "请求退出 Pi Agent Desktop…"
