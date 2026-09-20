@@ -767,6 +767,69 @@ def patch_typography():
           f"11注释/12提示/13正文/14区块/15页题；颜色四级 strong/text/muted/dim 不变）")
 
 
+I18N_ZH = [
+    # (原文串, 译文串, 期望次数)
+    ('children:"empty"', 'children:"空"', 1),
+    ('children:"Loading files..."', 'children:"加载文件中…"', 1),
+    ('children:"No files found"', 'children:"未找到文件"', 1),
+    ('children:"Loading session..."', 'children:"加载会话中…"', 1),
+    ('title:"running"', 'title:"运行中"', 2),
+    ('children:"Default"', 'children:"默认"', 1),
+    ('children:"Disabled"', 'children:"禁用"', 1),
+    ('children:"Custom"', 'children:"自定义"', 1),
+    ('"Complete sign-in in the browser, then copy the redirect URL from the address bar and paste it below."',
+     '"在浏览器中完成登录，然后从地址栏复制重定向 URL 粘贴到下方。"', 1),
+    ('"If the browser window did not open,"', '"如果浏览器窗口没有打开，"', 1),
+    ('children:"click here to open the login page"', 'children:"点击此处打开登录页面"', 1),
+    ('children:"Open the verification page and enter this code:"', 'children:"打开验证页面并输入此验证码："', 1),
+    ('label:"DeepSeek thinking compat"', 'label:"DeepSeek 思考兼容"', 1),
+    ('placeholder:"ENV_VAR_NAME, !shell-command, or literal key"',
+     'placeholder:"环境变量名、!shell 命令或密钥字面量"', 1),
+    ('placeholder:"e.g. github"', 'placeholder:"例如 github"', 1),
+    ('placeholder:"e.g. GitHub MCP"', 'placeholder:"例如 GitHub MCP"', 1),
+    ('placeholder:"e.g. npx or node"', 'placeholder:"例如 npx 或 node"', 1),
+    ('placeholder:"provider-name"', 'placeholder:"例如 my-provider"', 1),
+    ('placeholder:"model-id"', 'placeholder:"例如 deepseek-chat"', 1),
+    ('label:"OpenAI Compatible"', 'label:"OpenAI 兼容"', 1),
+    ('label:"Anthropic Compatible"', 'label:"Anthropic 兼容"', 1),
+    ('label:"Google Generative AI"', 'label:"Google 生成式 AI"', 1),
+]
+
+
+def patch_i18n():
+    """P21：中英文统一（2026-09-20 用户：中文界面能不用英文就不用，补缺失翻译）。
+    审计结论：locale 字典（0kv-dg468563p.js / 1sbj4hc6m3k0-.js）本身完整
+    （380 键，缺失 0；值与英文相同的都是 API/OAuth/Git Worktree 等专名，保留），
+    真正问题是主 chunk 里 **未走 i18n 字典的硬编码英文**。
+    本表为逐点替换：UI 文字 →中文；品牌/协议/文件类型缩写（Anthropic、TSX、
+    SQL、OpenAI Responses 等）保留。⚠ 曾排查的假阳性：`"command"===e`、
+    `"trust"===e.id`、`"sse"===…`、`"worktree"===m`、`"children" in n` 都是
+    条件比较/AST 代码，不是显示文本，勿改。
+    幂等：全部原文串已不存在且译文在位 → 跳过；部分存在 → 报错（防串音）。"""
+    chunk, src = find_chunk()
+    applied, missing = 0, []
+    for old, new, expect in I18N_ZH:
+        c = src.count(old)
+        if c == 0:
+            if src.count(new) == 0:
+                missing.append(old[:50])
+            continue
+        if c != expect:
+            raise PatchError(f"[P21] 锚点次数异常：{old[:60]} × {c}（期望 {expect}）")
+        src = src.replace(old, new)
+        applied += 1
+    if applied == 0 and not missing:
+        print("✅ [P21] 中英文统一已是补丁状态，跳过")
+        return
+    if missing:
+        raise PatchError(f"[P21] 原文串缺失（应用结构可能已变）：{missing[:3]}")
+    tmp = chunk + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(src)
+    os.replace(tmp, chunk)
+    print(f"✅ [P21] 中英文统一：{applied} 处硬编码英文已译（UI 文字中文化，专名/缩写保留）")
+
+
 def main():
     # P19：服务器响应头（独立文件 server.js，幂等）
     patch_server()
@@ -796,6 +859,7 @@ def main():
         # 改写其 null 分支为错误条。此处对已部署 chunk 成立。
         patch_error_banner()
         patch_typography()  # P20 放最后（P8c 锚点依赖原始字号值，必须在其后扫）
+        patch_i18n()         # P21 纯字面量替换，放链尾
         return 0
     orig = src
 
@@ -1654,6 +1718,7 @@ def main():
     # P13 放最后：消息级规则已由 P1-msg 注入，此处改写其 null 分支为错误条
     patch_error_banner()
     patch_typography()  # P20 放最后（P8c 锚点依赖原始字号值，必须在其后扫）
+    patch_i18n()         # P21 纯字面量替换，放链尾
     return 0
 
 

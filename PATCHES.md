@@ -604,6 +604,25 @@ $APP 根而非 chunks/）。
 11×20 / 12×54 / 13×105 / 14×6 / 15×2。
 P17 弹窗同步归位：标题 13 w600 text-dim→**text-strong**、行 fontSize 12→13。
 
+## 4k. P21 — 中英文统一（硬编码英文中文化，2026-09-20）
+
+**需求**：中文界面能不用英文就不用英文；补齐缺失翻译。
+
+**审计**：locale 字典在 `0kv-dg468563p.js` / `1sbj4hc6m3k0-.js`（同源两副本，
+380 键），**本身完整无缺译**（值同英文的仅 API/OAuth/Git Worktree 等专名）。
+真正问题是主 chunk 里未走字典的硬编码英文（以 children/placeholder/title/
+label 四属性位置扫描，共 70 个唯一串）。
+
+**处置**：22 处 UI 文字译入中文（I18N_ZH 表，逐条含次数断言）；品牌名
+（Anthropic/Groq/Kimi…）、协议/产品名（OpenAI Responses、sse）、文件类型
+缩写（TSX/SQL/GQL…）、示例 URL 保留英文。
+**假阳性鉴训**（勿改）：`"command"===e`、`"trust"===e.id`、`"removed"===e.type`、
+`"diff"===b`、`"sse"===…`、`"worktree"===m`、`"children" in n`（remark AST）
+都是条件比较/AST 代码非显示文本；OAuth 两长句是三元/数组结构，
+替换时不带 children: 前缀。
+
+幂等：全部原文串不存在且译文在位→跳过；部分存在→PatchError（防串音）。
+
 ## 5. 验证流程（每次适配后必做）
 
 ```bash
